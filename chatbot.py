@@ -55,9 +55,9 @@ def get_all_items_map():
 def format_phone_number(raw_phone: str) -> str:
     clean = re.sub(r"[^\d]", "", raw_phone)
     if clean.startswith("92") and len(clean) == 12:
-        return f"0{clean[2:5]} {clean[5:]}"
+        return f"0{clean[2:5]}-{clean[5:]}"
     elif clean.startswith("0") and len(clean) == 11:
-        return f"{clean[:4]} {clean[4:]}"
+        return f"{clean[:4]}-{clean[4:]}"
     elif clean.startswith("92") and len(clean) > 8:
         return f"0{clean[2:]}"
     return f"+{clean}" if clean else "Customer"
@@ -79,10 +79,10 @@ menu_knowledge_base = "\n".join(menu_lines)
 
 def build_system_instruction(customer_name: str, phone_number: str) -> str:
     formatted_phone = format_phone_number(phone_number)
-    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
+    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().upper()
 
     return f"""
-You are the WhatsApp ordering assistant for "{RESTAURANT_INFO['name']}".
+You are the WhatsApp ordering assistant for "{clean_name.title()}".
 
 AUTO-DETECTED CUSTOMER:
 - Name: {customer_name}
@@ -95,29 +95,25 @@ CRITICAL RULES:
      * "1 Zinger Burger note ho gaya! Address batayein. 🛵"
      * "Theek hai, order cancel kar diya gaya. 👍"
 2. FINAL ORDER RECEIPT SLIP:
-   ONLY when the customer provides their delivery address, output the clean, professional order invoice slip below:
+   ONLY when the customer provides their delivery address, output the order invoice slip in this EXACT box card format:
 
-🧾 *ORDER INVOICE*
-*{RESTAURANT_INFO['name']}*
-────────────────────────
+╔══════════════════════╗
+   🍕 *{clean_name}*
+╚══════════════════════╝
 🆔 *Order:* #FE-[Random 4 Digits]
-📅 *Date:* {now_str}
-
-👤 *Customer:* {customer_name}
-📱 *Phone:* {formatted_phone}
+👤 *Customer:* {customer_name} • {formatted_phone}
 📍 *Address:* [Customer Address]
-
-*Items Ordered:*
+──────────────────────
 • [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
-────────────────────────
+──────────────────────
 Subtotal: Rs. [Subtotal]
-Delivery Fee: Rs. {RESTAURANT_INFO['deliveryFee']}
-*TOTAL BILL: Rs. [Total Bill]* (Cash on Delivery)
-────────────────────────
-⏱ *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}
-🛵 *Status:* Preparing in Kitchen
+🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}
+💵 *TOTAL BILL:* *Rs. [Total Bill]* (COD)
+──────────────────────
+🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}
+🛵 *Status:* Sent to Kitchen
 
-Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️
+Shukriya for choosing *{clean_name.title()}*! ❤️
 
 MENU & PRICES:
 {menu_knowledge_base}
@@ -186,30 +182,28 @@ def format_cart_summary(cart):
 
 def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict) -> str:
     formatted_phone = format_phone_number(phone_number)
-    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
     items_list, subtotal, total = format_cart_summary(cart)
     if not items_list:
         items_list = "• Order items discussed in chat"
+    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().upper()
 
     return (
-        f"🧾 *ORDER INVOICE*\n"
-        f"*{RESTAURANT_INFO['name']}*\n"
-        f"────────────────────────\n"
+        f"╔══════════════════════╗\n"
+        f"   🍕 *{clean_name}*\n"
+        f"╚══════════════════════╝\n"
         f"🆔 *Order:* {order_id}\n"
-        f"📅 *Date:* {now_str}\n\n"
-        f"👤 *Customer:* {customer_name}\n"
-        f"📱 *Phone:* {formatted_phone}\n"
-        f"📍 *Address:* {address.strip()}\n\n"
-        f"*Items Ordered:*\n"
+        f"👤 *Customer:* {customer_name} • {formatted_phone}\n"
+        f"📍 *Address:* {address.strip()}\n"
+        f"──────────────────────\n"
         f"{items_list}\n"
-        f"────────────────────────\n"
+        f"──────────────────────\n"
         f"Subtotal: Rs. {subtotal}\n"
-        f"Delivery Fee: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
-        f"*TOTAL BILL: Rs. {total}* (Cash on Delivery)\n"
-        f"────────────────────────\n"
-        f"⏱ *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}\n"
-        f"🛵 *Status:* Preparing in Kitchen\n\n"
-        f"Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
+        f"🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
+        f"💵 *TOTAL BILL:* *Rs. {total}* (COD)\n"
+        f"──────────────────────\n"
+        f"🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}\n"
+        f"🛵 *Status:* Sent to Kitchen\n\n"
+        f"Shukriya for choosing *{clean_name.title()}*! ❤️"
     )
 
 def get_human_menu_text() -> str:
