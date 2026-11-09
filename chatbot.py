@@ -474,12 +474,25 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
         cart["awaiting_address"] = False
         order_id = f"#FE-{random.randint(1000, 9999)}"
         items_list, subtotal, total = format_cart_summary(cart)
+
+        order_details = {
+            "order_id": order_id,
+            "customer_phone": phone_number,
+            "address": message_text,
+            "items_list": items_list,
+            "subtotal": subtotal,
+            "delivery_fee": RESTAURANT_INFO["deliveryFee"],
+            "total": total,
+        }
+
         cart["items"] = []  # Reset cart after order placed
         save_carts(user_carts)
 
         return {
             "type": "button",
             "header": f"🎉 Order Confirmed! ({order_id})",
+            "order_confirmed": True,
+            "order_details": order_details,
             "text": (
                 f"Shukriya! Aapka order kitchen mein tayaar ho raha hai aur *{RESTAURANT_INFO['estimatedTime']}* mein pohnch jayega!\n\n"
                 f"{items_list}\n"

@@ -184,7 +184,7 @@ async def handle_incoming_messages(data: dict):
             # Process through conversational/interactive engine
             reply = await process_message(from_number, incoming_text)
 
-            # Send back appropriate WhatsApp format
+            # Send back appropriate WhatsApp format to customer
             if isinstance(reply, dict):
                 rtype = reply.get("type")
                 if rtype == "button":
@@ -209,6 +209,32 @@ async def handle_incoming_messages(data: dict):
             else:
                 print(f"[REPLY] Reply to {from_number}: \"{str(reply)[:80]}...\"")
                 await send_whatsapp_message(from_number, str(reply))
+
+            # ─────────────────────────────────────────────
+            # 🚨 Instant Kitchen / Owner Notification
+            # ─────────────────────────────────────────────
+            if isinstance(reply, dict) and reply.get("order_confirmed"):
+                owner_phone = os.getenv("OWNER_PHONE_NUMBER")
+                if owner_phone:
+                    clean_owner = owner_phone.replace("+", "").replace(" ", "").replace("-", "")
+                    details = reply.get("order_details", {})
+                    kitchen_alert = (
+                        f"🚨 *NEW ORDER RECEIVED!* 🍕🍗\n\n"
+                        f"🆔 *Order ID:* {details.get('order_id')}\n"
+                        f"👤 *Customer:* +{details.get('customer_phone')}\n"
+                        f"📍 *Delivery Address:* {details.get('address')}\n\n"
+                        f"📦 *Items to Prepare:*\n{details.get('items_list')}\n"
+                        f"Subtotal: *Rs. {details.get('subtotal')}*\n"
+                        f"Delivery Fee: *Rs. {details.get('delivery_fee')}*\n"
+                        f"💵 *TOTAL CASH ON DELIVERY: Rs. {details.get('total')}*\n\n"
+                        f"🛵 Khana ready karein taake rider foran rawana ho sake!"
+                    )
+                    try:
+                        print(f"[KITCHEN ALERT] Dispatching notification for order {details.get('order_id')} to owner {clean_owner}...")
+                        await send_whatsapp_message(to=clean_owner, text=kitchen_alert)
+                        print(f"[KITCHEN ALERT] Notification sent successfully to {clean_owner}!")
+                    except Exception as alert_err:
+                        print(f"[KITCHEN ALERT ERROR] Failed to send owner alert: {alert_err}")
     except Exception as e:
         print(f"[ERROR] Error handling messages: {e}")
 
