@@ -54,11 +54,13 @@ def get_all_items_map():
 
 def format_phone_number(raw_phone: str) -> str:
     clean = re.sub(r"[^\d]", "", raw_phone)
-    if clean.startswith("0"):
-        clean = "92" + clean[1:]
-    if clean.startswith("92") and len(clean) >= 11:
-        return f"+92 {clean[2:5]} {clean[5:8]} {clean[8:]}".strip()
-    return f"+{clean}" if clean else "Auto-Detected"
+    if clean.startswith("92") and len(clean) == 12:
+        return f"0{clean[2:5]} {clean[5:]}"
+    elif clean.startswith("0") and len(clean) == 11:
+        return f"{clean[:4]} {clean[4:]}"
+    elif clean.startswith("92") and len(clean) > 8:
+        return f"0{clean[2:]}"
+    return f"+{clean}" if clean else "Customer"
 
 # Menu knowledge base string for Gemini AI
 menu_lines = []
@@ -86,45 +88,36 @@ AUTO-DETECTED CUSTOMER:
 - Name: {customer_name}
 - Number: {formatted_phone}
 
-CRITICAL LENGTH RULE:
-- ALL intermediate conversational replies MUST be ultra-short: strictly 5 to 10 words only!
-- Talk like a real person texting briefly on WhatsApp. Never write paragraphs or long introductions.
-- Examples of 5 to 10 word replies:
-  * "Assalam-o-Alaikum! Aaj kya mangwayein ge aap? 🍕"
-  * "Zabardast! Apna delivery address send karein please. 🛵"
-  * "1 Zinger Burger aur Coke note ho gaya! 🍔"
-  * "Rozana 12:00 PM se 1:00 AM tak open hain. 🕒"
-  * "Circular Road, D.I. Khan par hamara kitchen hai. 📍"
-  * "Theek hai, order cancel kar diya gaya hai. 👍"
-  * "Ji bilkul fresh ready hai! Quantity kitni chahiye? 😋"
+CRITICAL RULES:
+1. ALL conversational replies MUST be ultra-short: strictly 5 to 10 words only!
+   - Examples:
+     * "Assalam-o-Alaikum! Aaj kya mangwayein ge aap? 🍕"
+     * "1 Zinger Burger note ho gaya! Address batayein. 🛵"
+     * "Theek hai, order cancel kar diya gaya. 👍"
+2. FINAL ORDER RECEIPT SLIP:
+   ONLY when the customer provides their delivery address, output the clean, professional order invoice slip below:
 
-EXCEPTION (FINAL ORDER SLIP ONLY):
-ONLY when the customer provides their delivery address to confirm the order, output the full official digital receipt slip in this exact format:
+🧾 *ORDER INVOICE*
+*{RESTAURANT_INFO['name']}*
+────────────────────────
+🆔 *Order:* #FE-[Random 4 Digits]
+📅 *Date:* {now_str}
 
-🧾 *{RESTAURANT_INFO['name'].upper()}* 🍕🍗
-━━━━━━━━━━━━━━━━━━━━━━
-📍 *OFFICIAL DELIVERY ORDER SLIP*
-━━━━━━━━━━━━━━━━━━━━━━
-🆔 *Order ID:* #FE-[Random 4 Digits]
-📅 *Date & Time:* {now_str}
-👤 *Customer Name:* {customer_name}
-📱 *Contact No:* {formatted_phone} _(Auto-Detected)_
-📍 *Delivery Address:* [Customer Address]
-━━━━━━━━━━━━━━━━━━━━━━
-📦 *ORDERED ITEMS:*
-1. [Qty]x [Item Name with Size/Crust if applicable]
-   └ Rs. [Item Price x Qty]
-[Add each item similarly]
-━━━━━━━━━━━━━━━━━━━━━━
-💵 *Subtotal:* Rs. [Subtotal]
-🛵 *Delivery Fee:* Rs. {RESTAURANT_INFO['deliveryFee']}
-⭐ *TOTAL PAYABLE:* *Rs. [Total Bill]*
-💳 *Payment Mode:* Cash on Delivery (COD)
-━━━━━━━━━━━━━━━━━━━━━━
-🕒 *Estimated Delivery:* {RESTAURANT_INFO['estimatedTime']}
-🛵 *Status:* Order Received & In Kitchen
+👤 *Customer:* {customer_name}
+📱 *Phone:* {formatted_phone}
+📍 *Address:* [Customer Address]
 
-Khana foran deliver hoga. Shukriya! ❤️
+*Items Ordered:*
+• [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
+────────────────────────
+Subtotal: Rs. [Subtotal]
+Delivery Fee: Rs. {RESTAURANT_INFO['deliveryFee']}
+*TOTAL BILL: Rs. [Total Bill]* (Cash on Delivery)
+────────────────────────
+⏱ *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}
+🛵 *Status:* Preparing in Kitchen
+
+Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️
 
 MENU & PRICES:
 {menu_knowledge_base}
@@ -184,40 +177,39 @@ async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_n
 def format_cart_summary(cart):
     subtotal = 0
     items_list = ""
-    for idx, item in enumerate(cart["items"], 1):
+    for item in cart.get("items", []):
         item_total = item["price"] * item["quantity"]
         subtotal += item_total
-        items_list += f"  {idx}. *{item['quantity']}x {item['name']}*\n     └ Rs. {item_total}\n"
+        items_list += f"• *{item['quantity']}x {item['name']}* — Rs. {item_total}\n"
     total = subtotal + RESTAURANT_INFO["deliveryFee"]
-    return items_list, subtotal, total
+    return items_list.strip(), subtotal, total
 
 def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict) -> str:
     formatted_phone = format_phone_number(phone_number)
     now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
     items_list, subtotal, total = format_cart_summary(cart)
+    if not items_list:
+        items_list = "• Order items discussed in chat"
 
     return (
-        f"🧾 *{RESTAURANT_INFO['name'].upper()}* 🍕🍗\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📍 *OFFICIAL DELIVERY ORDER SLIP*\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🆔 *Order ID:* {order_id}\n"
-        f"📅 *Date & Time:* {now_str}\n"
-        f"👤 *Customer Name:* {customer_name}\n"
-        f"📱 *Contact No:* {formatted_phone} _(Auto-Detected)_\n"
-        f"📍 *Delivery Address:* {address}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📦 *ORDERED ITEMS:*\n"
-        f"{items_list}"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💵 *Subtotal:* Rs. {subtotal}\n"
-        f"🛵 *Delivery Fee:* Rs. {RESTAURANT_INFO['deliveryFee']}\n"
-        f"⭐ *TOTAL PAYABLE:* *Rs. {total}*\n"
-        f"💳 *Payment Mode:* Cash on Delivery (COD)\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🕒 *Estimated Delivery:* {RESTAURANT_INFO['estimatedTime']}\n"
-        f"🛵 *Status:* Order Received & Sent to Kitchen\n\n"
-        f"Aapka order kitchen mein prepare ho raha hai. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
+        f"🧾 *ORDER INVOICE*\n"
+        f"*{RESTAURANT_INFO['name']}*\n"
+        f"────────────────────────\n"
+        f"🆔 *Order:* {order_id}\n"
+        f"📅 *Date:* {now_str}\n\n"
+        f"👤 *Customer:* {customer_name}\n"
+        f"📱 *Phone:* {formatted_phone}\n"
+        f"📍 *Address:* {address.strip()}\n\n"
+        f"*Items Ordered:*\n"
+        f"{items_list}\n"
+        f"────────────────────────\n"
+        f"Subtotal: Rs. {subtotal}\n"
+        f"Delivery Fee: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
+        f"*TOTAL BILL: Rs. {total}* (Cash on Delivery)\n"
+        f"────────────────────────\n"
+        f"⏱ *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}\n"
+        f"🛵 *Status:* Preparing in Kitchen\n\n"
+        f"Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
     )
 
 def get_human_menu_text() -> str:
