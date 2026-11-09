@@ -198,7 +198,7 @@ async def handle_incoming_messages(data: dict):
             # 🚨 Instant Kitchen / Owner Notification
             # ─────────────────────────────────────────────
             if isinstance(reply, dict) and reply.get("order_confirmed"):
-                owner_phone = os.getenv("OWNER_PHONE_NUMBER")
+                owner_phone = os.getenv("OWNER_PHONE_NUMBER", "923160998053")
                 if owner_phone:
                     clean_owner = owner_phone.replace("+", "").replace(" ", "").replace("-", "").strip()
                     if clean_owner.startswith("0"):
@@ -224,7 +224,7 @@ async def handle_incoming_messages(data: dict):
 # ─────────────────────────────────────────────
 @app.get("/", summary="Health Check")
 async def health_check():
-    owner = os.getenv("OWNER_PHONE_NUMBER", "")
+    owner = os.getenv("OWNER_PHONE_NUMBER", "923160998053")
     has_owner = bool(owner)
     masked_owner = (owner[:4] + "***" + owner[-4:]) if len(owner) >= 8 else ("Set" if has_owner else "Not Set")
     return {
