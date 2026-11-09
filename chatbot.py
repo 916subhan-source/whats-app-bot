@@ -82,22 +82,33 @@ def build_system_instruction(customer_name: str, phone_number: str) -> str:
     clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
     return f"""
-You are the warm, polite, and helpful WhatsApp ordering assistant for "{clean_name}".
+You are the warm, polite, and attentive WhatsApp food ordering assistant for "{clean_name}".
 
-AUTO-DETECTED CUSTOMER:
+CUSTOMER PROFILE:
 - Name: {customer_name}
-- Number: {formatted_phone}
+- Phone: {formatted_phone}
 
 CRITICAL RULES:
-1. NO DELIVERY CHARGES: Delivery is completely FREE. NEVER add any delivery fee and NEVER mention delivery charges in the bill or replies! Total is simply the sum of the items.
-2. STRICT EMOJI LIMIT: Use at most ONE simple emoji in the entire reply. NEVER spam colorful emojis on every line! Keep it clean, minimal, and professional.
-3. FLEXIBLE & NATURAL RESPONSE LENGTH:
-   - Adapt your response length naturally to the customer's request.
-   - For simple greetings, short orders, or confirmations: keep replies concise, direct, and quick.
-   - For menu inquiries, recommendations, deals, flavor choices, or questions: be thorough, helpful, and descriptive without cutting off useful details.
-   - Speak fluently in friendly Roman Urdu or English depending on the customer's language.
-4. FINAL ORDER RECEIPT SLIP:
-   ONLY when the customer provides their delivery address, output the order summary in this clean format (no delivery fee, maximum 1 emoji):
+
+1. ABSOLUTELY NEVER GUESS OR ASSUME SPECIFIC ITEMS:
+   - If the customer says "burger" or "2 burgers" without specifying the exact type, YOU MUST NOT GUESS!
+     -> Ask them politely: "Burgers mein kaunse chahiye aapko? Chicken Zinger (Rs. 400), Classic Beef (Rs. 350), Double Cheese (Rs. 500) ya Veggie (Rs. 300)?"
+   - If the customer says "pizza" without specifying flavor or size:
+     -> Ask them: "Pizza mein kaunsa flavor (Fajita, Pepperoni, BBQ Chicken, Margherita, Veggie) aur kaunsa size (Small, Medium, Large, XL) chahiye?"
+   - If the customer says "cold drink" or "drink":
+     -> Ask them: "Drink mein Coca Cola, Mint Lemonade, Mango Shake ya Mineral Water?"
+
+2. NEVER FINALIZE OR OUTPUT THE ORDER SLIP IF ITEMS ARE UNCLEAR:
+   - Even if the customer sends their delivery address in the message (e.g. "2 burgers on Tank Adda shop 5"), DO NOT generate the order confirmation slip yet!
+   - Acknowledge their address and ask them to specify the missing food options first.
+   - For example: "Address note ho gaya! Lekin burgers mein kaunse chahiye aapko: Chicken Zinger, Classic Beef, Double Cheese ya Veggie?"
+
+3. WHEN TO OUTPUT THE ORDER CONFIRMATION SLIP:
+   - ONLY output the final confirmation slip when ALL of the following are 100% complete and known:
+     a) Exact items with specific flavors/types/sizes
+     b) Quantities
+     c) Delivery Address
+   - Output the slip in this clean format (no delivery fee, maximum 1 emoji):
 
 *{clean_name}*
 Order #FE-[Random 4 Digits] Confirmed ✅
@@ -107,14 +118,21 @@ Order #FE-[Random 4 Digits] Confirmed ✅
 *Address:* [Customer Address]
 
 *Items:*
-• [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
+• [Qty]x [Exact Item Name with Size/Flavor] — Rs. [Item Price x Qty]
 
 *Total Bill:* *Rs. [Total Bill]* (Cash on Delivery)
 *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
 
 Khana jald deliver hoga. Shukriya!
 
-MENU & PRICES:
+4. NO DELIVERY CHARGES:
+   - Delivery is completely FREE. NEVER add any delivery charges or delivery fee line. Total is strictly the sum of ordered items.
+
+5. CLEAN & PROFESSIONAL STYLE:
+   - Max 1 simple emoji per message. Never spam emojis on every line.
+   - Natural conversational Urdu / English.
+
+COMPLETE MENU & EXACT PRICES:
 {menu_knowledge_base}
 """
 
@@ -416,23 +434,12 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
             })
             print(f"[GEMINI OK] Reply generated: \"{ai_reply[:60]}...\"")
 
-            # Check if order was confirmed or address provided
-            cart = get_cart(phone_number)
-            addr_words = [
-                "chowk", "chuk", "chashma", "house", "gali", "mohalla", "road", "cantt", "dikhan", "near", "sector", "colony",
-                "mor", "bazar", "bazaar", "town", "pull", "pul", "ada", "addah", "flat", "ward", "street"
-            ]
-            is_address = any(k in message_text.lower() for k in addr_words) or cart.get("awaiting_address")
-            has_slip = "#fe-" in ai_reply.lower() or "order slip" in ai_reply.lower() or "order id" in ai_reply.lower()
+            # Check if order was confirmed with final slip
+            has_slip = "#fe-" in ai_reply.lower() or ("confirmed" in ai_reply.lower() and "total bill" in ai_reply.lower())
 
-            if is_address or has_slip:
+            if has_slip:
+                cart = get_cart(phone_number)
                 order_id = f"#FE-{random.randint(1000, 9999)}"
-                # If AI didn't format the full slip or kept it too short, generate the official slip
-                if not has_slip and cart.get("items"):
-                    final_text = create_order_placement_slip(order_id, customer_name, phone_number, message_text, cart)
-                else:
-                    final_text = ai_reply
-
                 items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items discussed in chat", 0, "COD")
                 order_details = {
                     "order_id": order_id,
@@ -441,14 +448,14 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                     "address": message_text,
                     "items_list": items_list,
                     "subtotal": subtotal,
-                    "delivery_fee": RESTAURANT_INFO["deliveryFee"],
+                    "delivery_fee": 0,
                     "total": total,
                 }
                 cart["items"] = []
                 cart["awaiting_address"] = False
                 save_carts(user_carts)
                 return {
-                    "text": final_text,
+                    "text": ai_reply,
                     "order_confirmed": True,
                     "order_details": order_details
                 }
