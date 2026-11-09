@@ -1,15 +1,35 @@
 import os
 import re
+import json
 import random
+import tempfile
 import httpx
 from dotenv import load_dotenv
 from menu import RESTAURANT_INFO, MENU
 
 load_dotenv(override=True)
 
-# In-memory history and cart per customer
+# Persistent cart file across serverless invocations
+CARTS_FILE = os.path.join(tempfile.gettempdir(), "whatsapp_food_bot_carts.json")
+
+def load_carts() -> dict:
+    try:
+        if os.path.exists(CARTS_FILE):
+            with open(CARTS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {}
+
+def save_carts(carts: dict):
+    try:
+        with open(CARTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(carts, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+user_carts = load_carts()
 conversation_history = {}
-user_carts = {}
 
 def get_history(phone_number: str):
     if phone_number not in conversation_history:
@@ -17,8 +37,11 @@ def get_history(phone_number: str):
     return conversation_history[phone_number]
 
 def get_cart(phone_number: str):
+    global user_carts
+    if not user_carts:
+        user_carts = load_carts()
     if phone_number not in user_carts:
-        user_carts[phone_number] = {"items": [], "address": None}
+        user_carts[phone_number] = {"items": [], "address": None, "awaiting_address": False}
     return user_carts[phone_number]
 
 def get_all_items_map():
@@ -188,6 +211,7 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
             else:
                 cart["items"].append({**item, "quantity": 1})
 
+            save_carts(user_carts)
             items_list, subtotal, total = format_cart_summary(cart)
 
             return {
@@ -246,6 +270,8 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
     # 5. Clear Cart (btn_clear, clear)
     if text in ["btn_clear", "clear", "khali", "delete cart"]:
         cart["items"] = []
+        cart["awaiting_address"] = False
+        save_carts(user_carts)
         return {
             "type": "button",
             "header": "🗑️ Cart Cleared",
@@ -269,6 +295,8 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
                 ]
             }
 
+        cart["awaiting_address"] = True
+        save_carts(user_carts)
         items_list, subtotal, total = format_cart_summary(cart)
         return {
             "type": "button",
@@ -307,11 +335,22 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
         }
 
     # 8. Address Provided (order confirmation)
-    if cart["items"] and (any(k in text for k in ["house", "street", "gali", "mohalla", "road", "near", "dikhan", "islamabad", "sector"]) or len(text.split()) >= 3):
+    ADDRESS_KEYWORDS = [
+        "house", "street", "gali", "mohalla", "road", "near", "dikhan", "d.i. khan", "d.i.khan",
+        "chowk", "chuk", "chashma", "cantt", "mor", "bazar", "bazaar", "colony", "town", "pull",
+        "pul", "ada", "addah", "kareeb", "opp", "opposite", "flat", "floor", "ward", "chak",
+        "hospital", "university", "college", "stop", "market", "plaza", "gate", "darwaza", "village", "gaon"
+    ]
+    is_address_text = any(k in text for k in ADDRESS_KEYWORDS) or len(text.split()) >= 2
+    is_waiting = cart.get("awaiting_address", False)
+
+    if cart["items"] and (is_waiting or is_address_text):
         cart["address"] = message_text
+        cart["awaiting_address"] = False
         order_id = f"#FE-{random.randint(1000, 9999)}"
         items_list, subtotal, total = format_cart_summary(cart)
         cart["items"] = []  # Reset cart after order placed
+        save_carts(user_carts)
 
         return {
             "type": "button",
@@ -325,6 +364,11 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
                 f"Khana garma garam pohnchne tak intezar farmaiye. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
             ),
             "footer": "Enjoy your delicious meal!",
+            "buttons": [
+                {"id": "btn_menu", "title": "📋 New Order"},
+                {"id": "btn_info", "title": "📍 Kitchen Info"}
+            ]
+        }
             "buttons": [
                 {"id": "btn_menu", "title": "📋 New Order"},
                 {"id": "btn_info", "title": "📍 Kitchen Info"}
