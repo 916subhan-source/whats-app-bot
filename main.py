@@ -164,10 +164,10 @@ async def verify_webhook(
     raise HTTPException(status_code=403, detail="Verification failed")
 
 @app.post("/webhook", summary="WhatsApp Incoming Message Webhook")
-async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
+async def receive_webhook(request: Request):
     data = await request.json()
-    # Fast 200 response to Meta, process message in background task
-    background_tasks.add_task(handle_incoming_messages, data)
+    # Process incoming message directly so serverless functions (e.g. Vercel) don't freeze before completion
+    await handle_incoming_messages(data)
     return JSONResponse(content={"status": "received"}, status_code=200)
 
 if __name__ == "__main__":
