@@ -150,6 +150,11 @@ async def handle_incoming_messages(data: dict):
         if not changes:
             return
         value = changes[0].get("value", {})
+        contacts = value.get("contacts", [])
+        customer_name = "Customer"
+        if contacts and isinstance(contacts, list) and len(contacts) > 0:
+            customer_name = contacts[0].get("profile", {}).get("name", "Customer")
+
         messages = value.get("messages", [])
 
         for message in messages:
@@ -175,14 +180,14 @@ async def handle_incoming_messages(data: dict):
                 # Fallback for voice/images/stickers
                 await send_whatsapp_message(
                     from_number,
-                    "🤖 Sorry, I can only understand text & interactive buttons right now.\n\nPlease type *hi* or *menu* to get started!"
+                    f"Assalam-o-Alaikum {customer_name}! 😊 Please type your food order or write *menu* to see our dishes."
                 )
                 continue
 
-            print(f"[MSG] Message from {from_number}: \"{incoming_text}\"")
+            print(f"[MSG] Message from {customer_name} ({from_number}): \"{incoming_text}\"")
 
-            # Process through warm human-like conversation engine
-            reply = await process_message(from_number, incoming_text)
+            # Process through warm human-like conversation engine (Gemini AI + Local Fallback)
+            reply = await process_message(from_number, incoming_text, customer_name)
 
             # Send back pure natural text like a human employee
             text_to_send = reply.get("text") if isinstance(reply, dict) else str(reply)
@@ -199,16 +204,11 @@ async def handle_incoming_messages(data: dict):
                     if clean_owner.startswith("0"):
                         clean_owner = "92" + clean_owner[1:]
                     details = reply.get("order_details", {})
+                    order_slip = reply.get("text", "")
                     kitchen_alert = (
-                        f"🚨 *NEW ORDER RECEIVED!* 🍕🍗\n\n"
-                        f"🆔 *Order ID:* {details.get('order_id')}\n"
-                        f"👤 *Customer:* +{details.get('customer_phone')}\n"
-                        f"📍 *Delivery Address:* {details.get('address')}\n\n"
-                        f"📦 *Items to Prepare:*\n{details.get('items_list')}\n"
-                        f"Subtotal: *Rs. {details.get('subtotal')}*\n"
-                        f"Delivery Fee: *Rs. {details.get('delivery_fee')}*\n"
-                        f"💵 *TOTAL CASH ON DELIVERY: Rs. {details.get('total')}*\n\n"
-                        f"🛵 Khana ready karein taake rider foran rawana ho sake!"
+                        f"🚨 *NEW ORDER RECEIVED IN KITCHEN!* 🍕🍗\n\n"
+                        f"{order_slip}\n\n"
+                        f"🛵 Khana foran ready karein taake rider rawana ho sake!"
                     )
                     try:
                         print(f"[KITCHEN ALERT] Dispatching notification for order {details.get('order_id')} to owner {clean_owner}...")

@@ -4,6 +4,7 @@ import json
 import random
 import tempfile
 import httpx
+from datetime import datetime
 from dotenv import load_dotenv
 from menu import RESTAURANT_INFO, MENU, PIZZA_SIZES, PIZZA_CRUSTS
 
@@ -51,6 +52,14 @@ def get_all_items_map():
             all_items[item["id"]] = item
     return all_items
 
+def format_phone_number(raw_phone: str) -> str:
+    clean = re.sub(r"[^\d]", "", raw_phone)
+    if clean.startswith("0"):
+        clean = "92" + clean[1:]
+    if clean.startswith("92") and len(clean) >= 11:
+        return f"+92 {clean[2:5]} {clean[5:8]} {clean[8:]}".strip()
+    return f"+{clean}" if clean else "Auto-Detected"
+
 # Menu knowledge base string for Gemini AI
 menu_lines = []
 for cat in MENU.values():
@@ -66,23 +75,49 @@ for cat in MENU.values():
     menu_lines.append("")
 menu_knowledge_base = "\n".join(menu_lines)
 
-SYSTEM_INSTRUCTION = f"""
-You are the warm, polite, and human-like WhatsApp ordering assistant for "{RESTAURANT_INFO['name']}".
+def build_system_instruction(customer_name: str, phone_number: str) -> str:
+    formatted_phone = format_phone_number(phone_number)
+    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
-PERSONALITY & HUMAN TOUCH:
-1. Always talk like a polite, caring Pakistani restaurant manager/employee answering on WhatsApp. NEVER sound like a machine, automated IVR, or robotic keypad menu.
-2. Do not use buttons or machine syntax. Reply with natural sentences, emojis, and clear formatting (*bold* for items/prices).
-3. Fluently speak and understand English, Urdu, and Roman Urdu (e.g., "bhai 1 zinger burger aur coke bhej do", "kya menu hai aapka?", "kitna time lagega delivery mein?").
-4. Match the user's language and tone. If they speak Urdu, reply in sweet/polite Roman Urdu. If English, reply in English.
+    return f"""
+You are the warm, polite, and human-like WhatsApp ordering manager for "{RESTAURANT_INFO['name']}".
 
-DUTIES:
-1. Greet warmly, recommend popular items (like Chicken Zinger Burger, Pepperoni Pizza, Chicken Tikka).
-2. When customer asks for menu, share a clean, appetizing menu.
-3. When customer orders items:
-   - Calculate accurately according to the menu.
-   - Summarize items, subtotal, delivery fee ({RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}), and total.
-   - Politely ask for their delivery address.
-4. When they give address, confirm the order with Order ID (e.g. #FE-8892), state Cash on Delivery (COD), and wish them a delicious meal!
+AUTO-DETECTED CUSTOMER PROFILE:
+- Customer Name: {customer_name}
+- WhatsApp Number (Auto-Detected): {formatted_phone}
+
+PERSONALITY & HUMAN HOSPITALITY:
+1. Talk like a friendly Pakistani restaurant manager answering directly on WhatsApp. NEVER sound like an automated IVR, bot, or machine.
+2. Reply with sweet and polite Roman Urdu or English depending on what the customer speaks.
+3. Keep calculations accurate based on the menu prices below.
+
+FINAL ORDER CONFIRMATION SLIP FORMAT:
+When the customer finalizes what they want and provides their delivery address, ALWAYS output the official order confirmation slip in this EXACT, clean digital receipt format:
+
+🧾 *{RESTAURANT_INFO['name'].upper()}* 🍕🍗
+━━━━━━━━━━━━━━━━━━━━━━
+📍 *OFFICIAL DELIVERY ORDER SLIP*
+━━━━━━━━━━━━━━━━━━━━━━
+🆔 *Order ID:* #FE-[Random 4 Digits]
+📅 *Date & Time:* {now_str}
+👤 *Customer Name:* {customer_name}
+📱 *Contact No:* {formatted_phone} _(Auto-Detected)_
+📍 *Delivery Address:* [Customer Address]
+━━━━━━━━━━━━━━━━━━━━━━
+📦 *ORDERED ITEMS:*
+1. [Qty]x [Item Name with Size/Crust if applicable]
+   └ Rs. [Item Price x Qty]
+[Add each item similarly]
+━━━━━━━━━━━━━━━━━━━━━━
+💵 *Subtotal:* Rs. [Subtotal]
+🛵 *Delivery Fee:* Rs. {RESTAURANT_INFO['deliveryFee']}
+⭐ *TOTAL PAYABLE:* *Rs. [Total Bill]*
+💳 *Payment Mode:* Cash on Delivery (COD)
+━━━━━━━━━━━━━━━━━━━━━━
+🕒 *Estimated Delivery:* {RESTAURANT_INFO['estimatedTime']}
+🛵 *Status:* Order Received & In Kitchen
+
+Khana garma-garam tayaar ho kar jald aap tak pohnch jayega. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️
 
 RESTAURANT DETAILS:
 - Name: {RESTAURANT_INFO['name']}
@@ -97,15 +132,16 @@ COMPLETE MENU ITEMS & PRICES:
 {menu_knowledge_base}
 """
 
-async def call_gemini_ai(user_history, api_key: str) -> str:
+async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_number: str) -> str:
+    sys_instruction = build_system_instruction(customer_name, phone_number)
     contents = [
         {
             "role": "user",
-            "parts": [{"text": f"System Instruction: {SYSTEM_INSTRUCTION}"}]
+            "parts": [{"text": f"System Instruction: {sys_instruction}"}]
         },
         {
             "role": "model",
-            "parts": [{"text": "Understood! I am the warm, friendly, human-like WhatsApp assistant for Foodie Express & Grill. I speak natural English and polite Roman Urdu."}]
+            "parts": [{"text": f"Understood! Main {RESTAURANT_INFO['name']} ka manager hoon. Customer {customer_name} (+{phone_number}) ke sath warmly baat karunga aur final order par exact digital receipt slip banaunga."}]
         }
     ]
     contents.extend(user_history)
@@ -118,7 +154,7 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
         }
     }
 
-    # Use fast low-latency models (gemini-3.5-flash-lite or gemini-3.8-flash)
+    # Fast low-latency models
     models_to_try = [
         os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
         "gemini-3.8-flash",
@@ -141,7 +177,7 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
                         if parts and "text" in parts[0]:
                             return parts[0]["text"].strip()
                 else:
-                    last_err = f"{model_name} returned {response.status_code}: {response.text}"
+                    last_err = f"{model_name} returned {response.status_code}"
         except Exception as e:
             last_err = str(e)
 
@@ -150,12 +186,41 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
 def format_cart_summary(cart):
     subtotal = 0
     items_list = ""
-    for item in cart["items"]:
+    for idx, item in enumerate(cart["items"], 1):
         item_total = item["price"] * item["quantity"]
         subtotal += item_total
-        items_list += f"• {item['quantity']}x {item['name']} — *{RESTAURANT_INFO['currency']} {item_total}*\n"
+        items_list += f"  {idx}. *{item['quantity']}x {item['name']}*\n     └ Rs. {item_total}\n"
     total = subtotal + RESTAURANT_INFO["deliveryFee"]
     return items_list, subtotal, total
+
+def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict) -> str:
+    formatted_phone = format_phone_number(phone_number)
+    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
+    items_list, subtotal, total = format_cart_summary(cart)
+
+    return (
+        f"🧾 *{RESTAURANT_INFO['name'].upper()}* 🍕🍗\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📍 *OFFICIAL DELIVERY ORDER SLIP*\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 *Order ID:* {order_id}\n"
+        f"📅 *Date & Time:* {now_str}\n"
+        f"👤 *Customer Name:* {customer_name}\n"
+        f"📱 *Contact No:* {formatted_phone} _(Auto-Detected)_\n"
+        f"📍 *Delivery Address:* {address}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📦 *ORDERED ITEMS:*\n"
+        f"{items_list}"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"💵 *Subtotal:* Rs. {subtotal}\n"
+        f"🛵 *Delivery Fee:* Rs. {RESTAURANT_INFO['deliveryFee']}\n"
+        f"⭐ *TOTAL PAYABLE:* *Rs. {total}*\n"
+        f"💳 *Payment Mode:* Cash on Delivery (COD)\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🕒 *Estimated Delivery:* {RESTAURANT_INFO['estimatedTime']}\n"
+        f"🛵 *Status:* Order Received & Sent to Kitchen\n\n"
+        f"Aapka order kitchen mein prepare ho raha hai. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
+    )
 
 def get_human_menu_text() -> str:
     return (
@@ -166,7 +231,7 @@ def get_human_menu_text() -> str:
         f"  • BBQ Smoky Chicken — Rs. 500 (S) | Rs. 800 (M) | Rs. 1,200 (L)\n"
         f"  • Cheese Margherita — Rs. 400 (S) | Rs. 650 (M) | Rs. 1,000 (L)\n"
         f"  • Veggie Supreme — Rs. 400 (S) | Rs. 650 (M) | Rs. 1,000 (L)\n"
-        f"  _(Crust: Cheese Stuffed +Rs. 150, Kabab Crown +Rs. 200)_\n\n"
+        f"  _(Crust Options: Cheese Stuffed +Rs. 150, Kabab Crown +Rs. 200)_\n\n"
         f"🍗 *Grill & Charcoal BBQ:*\n"
         f"  • Chicken Tikka (Leg/Breast) — *Rs. 450*\n"
         f"  • Chicken Malai Boti (8 Pcs) — *Rs. 650*\n"
@@ -193,7 +258,7 @@ def get_human_menu_text() -> str:
         f"👉 *1 Zinger Burger aur 1 Coke* ya *1 Medium Pepperoni Pizza* 😊"
     )
 
-def generate_human_fallback(phone_number: str, message_text: str):
+def generate_human_fallback(phone_number: str, message_text: str, customer_name: str = "Customer"):
     text = message_text.lower().strip()
     cart = get_cart(phone_number)
     all_items_map = get_all_items_map()
@@ -201,7 +266,7 @@ def generate_human_fallback(phone_number: str, message_text: str):
     # 1. Greetings ("hi", "hello", "salam", "aoa", "hey")
     if text in ["hi", "hello", "salam", "assalam o alaikum", "aoa", "hey", "start"]:
         return (
-            f"Assalam-o-Alaikum! 👋 Welcome to *{RESTAURANT_INFO['name']}*! 🍕🍗\n\n"
+            f"Assalam-o-Alaikum {customer_name}! 👋 Welcome to *{RESTAURANT_INFO['name']}*! 🍕🍗\n\n"
             f"Kahiye janab, aaj aapke liye kya tayaar karein? 😊\n\n"
             f"Hamare paas hot Pizzas, Charcoal Grills, Crispy Zinger Burgers aur Cold Drinks bilkul fresh ready hain!\n\n"
             f"• *Menu dekhne ke liye likhein:* *menu*\n"
@@ -217,7 +282,7 @@ def generate_human_fallback(phone_number: str, message_text: str):
     if any(k in text for k in ["cart", "bill", "mera order", "total kitna", "basket"]) and not any(k in text for k in ["clear", "cancel", "khatam"]):
         if not cart["items"]:
             return (
-                f"Aapke cart mein filhal koi item add nahi hai janab. 😊\n\n"
+                f"Aapke cart mein filhal koi item add nahi hai {customer_name}. 😊\n\n"
                 f"Hamara menu dekhne ke liye *menu* likhein, ya direct batayein aapke liye kya tayaar karein! 🍕"
             )
         items_list, subtotal, total = format_cart_summary(cart)
@@ -236,7 +301,7 @@ def generate_human_fallback(phone_number: str, message_text: str):
         cart["awaiting_address"] = False
         save_carts(user_carts)
         return (
-            f"Theek hai janab, koi masla nahi! 😊\n\n"
+            f"Theek hai {customer_name}, koi masla nahi! 😊\n\n"
             f"Aapka order cancel kar diya gaya hai. Jab bhi dobara bhook lagay, bas ek message kar dijiye ga. *{RESTAURANT_INFO['name']}* hamesha aapki khidmat ke liye hazir hai! ❤️"
         )
 
@@ -263,7 +328,7 @@ def generate_human_fallback(phone_number: str, message_text: str):
             f"Kya mangwana chahenge?"
         )
 
-    # 6. Address Provided (Order Confirmation)
+    # 6. Address Provided -> Beautiful Official Order Slip Confirmation
     ADDRESS_KEYWORDS = [
         "house", "street", "gali", "mohalla", "road", "near", "dikhan", "d.i. khan", "d.i.khan",
         "chowk", "chuk", "chashma", "cantt", "mor", "bazar", "bazaar", "colony", "town", "pull",
@@ -279,9 +344,13 @@ def generate_human_fallback(phone_number: str, message_text: str):
         order_id = f"#FE-{random.randint(1000, 9999)}"
         items_list, subtotal, total = format_cart_summary(cart)
 
+        # Generate official digital invoice slip
+        slip_text = create_order_placement_slip(order_id, customer_name, phone_number, message_text, cart)
+
         order_details = {
             "order_id": order_id,
-            "customer_phone": phone_number,
+            "customer_name": customer_name,
+            "customer_phone": format_phone_number(phone_number),
             "address": message_text,
             "items_list": items_list,
             "subtotal": subtotal,
@@ -292,17 +361,8 @@ def generate_human_fallback(phone_number: str, message_text: str):
         cart["items"] = []  # Reset cart after order placed
         save_carts(user_carts)
 
-        reply_text = (
-            f"🎉 *Bohot Shukriya! Order Confirm ho gaya!* (ID: *{order_id}*)\n\n"
-            f"Aapka order kitchen mein prepare ho raha hai aur *{RESTAURANT_INFO['estimatedTime']}* mein pohnch jayega! 🛵💨\n\n"
-            f"📦 *Ordered Items:*\n{items_list}\n"
-            f"💵 *Total Bill:* Rs. {total} (Cash on Delivery)\n"
-            f"📍 *Delivery Address:* {message_text}\n\n"
-            f"Khana garma garam pohnchne tak intezar farmaiye ga. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
-        )
-
         return {
-            "text": reply_text,
+            "text": slip_text,
             "order_confirmed": True,
             "order_details": order_details
         }
@@ -332,7 +392,6 @@ def generate_human_fallback(phone_number: str, message_text: str):
         {"id": "d4", "keywords": ["water", "water bottle", "paani"], "default_name": "Mineral Water (500ml)", "price": 50},
     ]
 
-    # Detect pizza size mentions (small, medium, large, xl)
     size_selected = "medium"
     size_label = "Medium"
     if any(s in text for s in ["small", "chota", "choti", "7 inch", "7\""]):
@@ -345,7 +404,6 @@ def generate_human_fallback(phone_number: str, message_text: str):
         size_selected = "xlarge"
         size_label = "X-Large"
 
-    # Detect crust mentions
     crust_extra = 0
     crust_label = ""
     if any(c in text for c in ["cheese stuffed", "cheese crust", "stuffed crust", "cheese bhari"]):
@@ -391,7 +449,7 @@ def generate_human_fallback(phone_number: str, message_text: str):
         items_list, subtotal, total = format_cart_summary(cart)
 
         return (
-            f"Wah, zabardast choice janab! 😋 Aapka order note ho gaya hai:\n\n"
+            f"Wah, zabardast choice {customer_name}! 😋 Aapka order note ho gaya hai:\n\n"
             f"{items_list}\n"
             f"Subtotal: *Rs. {subtotal}*\n"
             f"Delivery Fee: *Rs. {RESTAURANT_INFO['deliveryFee']}*\n"
@@ -402,24 +460,24 @@ def generate_human_fallback(phone_number: str, message_text: str):
 
     # 8. Friendly Natural Fallback
     return (
-        f"Jee janab! 😊 Kahiye aapke liye kya bhejwain?\n\n"
+        f"Jee {customer_name}! 😊 Kahiye aapke liye kya bhejwain?\n\n"
         f"Hamara complete menu dekhne ke liye likhein: *menu*\n"
         f"Ya direct order batayein, jaise: *1 Zinger Burger aur 1 Coke* 🍕🍔"
     )
 
-async def process_message(phone_number: str, message_text: str):
+async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
     # Check Gemini AI first for fluid, warm, human conversation
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
-            print(f"[GEMINI] Calling Gemini AI for {phone_number}...")
+            print(f"[GEMINI] Calling Gemini AI for {customer_name} (+{phone_number})...")
             history = get_history(phone_number)
             history.append({
                 "role": "user",
                 "parts": [{"text": message_text}]
             })
             recent_history = history[-6:]
-            ai_reply = await call_gemini_ai(recent_history, api_key)
+            ai_reply = await call_gemini_ai(recent_history, api_key, customer_name, phone_number)
             history.append({
                 "role": "model",
                 "parts": [{"text": ai_reply}]
@@ -429,12 +487,13 @@ async def process_message(phone_number: str, message_text: str):
             # Check if order was confirmed in chat to trigger kitchen notification
             cart = get_cart(phone_number)
             addr_words = ["chowk", "chuk", "chashma", "house", "gali", "mohalla", "road", "cantt", "dikhan", "near", "sector", "colony"]
-            if any(k in message_text.lower() for k in addr_words) or "#fe-" in ai_reply.lower() or "order confirm" in ai_reply.lower():
+            if any(k in message_text.lower() for k in addr_words) or "#fe-" in ai_reply.lower() or "order slip" in ai_reply.lower() or "order id" in ai_reply.lower():
                 order_id = f"#FE-{random.randint(1000, 9999)}"
                 items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items discussed in chat", 0, "COD")
                 order_details = {
                     "order_id": order_id,
-                    "customer_phone": phone_number,
+                    "customer_name": customer_name,
+                    "customer_phone": format_phone_number(phone_number),
                     "address": message_text,
                     "items_list": items_list,
                     "subtotal": subtotal,
@@ -454,4 +513,4 @@ async def process_message(phone_number: str, message_text: str):
             print(f"[GEMINI ERROR] {e}")
 
     print("[FALLBACK] Using local human fallback engine...")
-    return generate_human_fallback(phone_number, message_text)
+    return generate_human_fallback(phone_number, message_text, customer_name)
