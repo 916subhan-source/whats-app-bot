@@ -181,34 +181,13 @@ async def handle_incoming_messages(data: dict):
 
             print(f"[MSG] Message from {from_number}: \"{incoming_text}\"")
 
-            # Process through conversational/interactive engine
+            # Process through warm human-like conversation engine
             reply = await process_message(from_number, incoming_text)
 
-            # Send back appropriate WhatsApp format to customer
-            if isinstance(reply, dict):
-                rtype = reply.get("type")
-                if rtype == "button":
-                    await send_whatsapp_buttons(
-                        to=from_number,
-                        text=reply.get("text", ""),
-                        buttons=reply.get("buttons", []),
-                        header=reply.get("header"),
-                        footer=reply.get("footer"),
-                    )
-                elif rtype == "list":
-                    await send_whatsapp_list(
-                        to=from_number,
-                        text=reply.get("text", ""),
-                        button_label=reply.get("button_label", "Select Option"),
-                        sections=reply.get("sections", []),
-                        header=reply.get("header"),
-                        footer=reply.get("footer"),
-                    )
-                else:
-                    await send_whatsapp_message(from_number, reply.get("text", str(reply)))
-            else:
-                print(f"[REPLY] Reply to {from_number}: \"{str(reply)[:80]}...\"")
-                await send_whatsapp_message(from_number, str(reply))
+            # Send back pure natural text like a human employee
+            text_to_send = reply.get("text") if isinstance(reply, dict) else str(reply)
+            print(f"[REPLY] Reply to {from_number}: \"{text_to_send[:80]}...\"")
+            await send_whatsapp_message(from_number, text_to_send)
 
             # ─────────────────────────────────────────────
             # 🚨 Instant Kitchen / Owner Notification
