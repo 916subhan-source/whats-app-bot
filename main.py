@@ -224,11 +224,18 @@ async def handle_incoming_messages(data: dict):
 # ─────────────────────────────────────────────
 @app.get("/", summary="Health Check")
 async def health_check():
+    owner = os.getenv("OWNER_PHONE_NUMBER", "")
+    has_owner = bool(owner)
+    masked_owner = (owner[:4] + "***" + owner[-4:]) if len(owner) >= 8 else ("Set" if has_owner else "Not Set")
     return {
         "status": "🟢 running",
         "framework": "FastAPI",
         "bot": "WhatsApp Food Delivery Bot",
         "version": "2.0.0",
+        "owner_alert_configured": has_owner,
+        "owner_phone_masked": masked_owner,
+        "gemini_api_configured": bool(os.getenv("GEMINI_API_KEY")),
+        "whatsapp_id_configured": bool(os.getenv("WHATSAPP_PHONE_NUMBER_ID")),
         "docs_url": "/docs"
     }
 
