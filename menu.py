@@ -6,7 +6,7 @@ RESTAURANT_INFO = {
     "name": "🍕 Foodie Express & Grill",
     "tagline": "Delicious pizzas, burgers & charcoal grills delivered fresh!",
     "currency": "Rs.",
-    "deliveryFee": 50,
+    "deliveryFee": 0,
     "estimatedTime": "30-45 mins",
 }
 

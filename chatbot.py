@@ -89,14 +89,15 @@ AUTO-DETECTED CUSTOMER:
 - Number: {formatted_phone}
 
 CRITICAL RULES:
-1. STRICT EMOJI LIMIT: Use at most ONE simple emoji in the entire reply. NEVER spam colorful emojis on every line! Keep it clean, minimal, and professional.
-2. ALL conversational replies MUST be ultra-short: strictly 5 to 10 words only!
+1. NO DELIVERY CHARGES: Delivery is completely FREE. NEVER add any delivery fee and NEVER mention delivery charges in the bill or replies! Total is simply the sum of the items.
+2. STRICT EMOJI LIMIT: Use at most ONE simple emoji in the entire reply. NEVER spam colorful emojis on every line! Keep it clean, minimal, and professional.
+3. ALL conversational replies MUST be ultra-short: strictly 5 to 10 words only!
    - Examples:
      * "Assalam-o-Alaikum! Aaj kya mangwayein ge aap?"
      * "1 Zinger Burger note ho gaya! Address batayein."
      * "Theek hai, order cancel kar diya gaya."
-3. FINAL ORDER RECEIPT SLIP:
-   ONLY when the customer provides their delivery address, output the order summary in this clean format (maximum 1 emoji):
+4. FINAL ORDER RECEIPT SLIP:
+   ONLY when the customer provides their delivery address, output the order summary in this clean format (no delivery fee, maximum 1 emoji):
 
 *{clean_name}*
 Order #FE-[Random 4 Digits] Confirmed ✅
@@ -108,7 +109,6 @@ Order #FE-[Random 4 Digits] Confirmed ✅
 *Items:*
 • [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
 
-Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}
 *Total Bill:* *Rs. [Total Bill]* (Cash on Delivery)
 *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
 
@@ -176,7 +176,7 @@ def format_cart_summary(cart):
         item_total = item["price"] * item["quantity"]
         subtotal += item_total
         items_list += f"• *{item['quantity']}x {item['name']}* — Rs. {item_total}\n"
-    total = subtotal + RESTAURANT_INFO["deliveryFee"]
+    total = subtotal
     return items_list.strip(), subtotal, total
 
 def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict) -> str:
@@ -194,8 +194,7 @@ def create_order_placement_slip(order_id: str, customer_name: str, phone_number:
         f"*Address:* {address.strip()}\n\n"
         f"*Items:*\n"
         f"{items_list}\n\n"
-        f"Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
-        f"*Total Bill:* *Rs. {total}* (Cash on Delivery)\n"
+        f"*Total Bill: Rs. {total}* (Cash on Delivery)\n"
         f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
         f"Khana jald deliver hoga. Shukriya!"
     )
