@@ -95,25 +95,23 @@ CRITICAL RULES:
      * "1 Zinger Burger note ho gaya! Address batayein. 🛵"
      * "Theek hai, order cancel kar diya gaya. 👍"
 2. FINAL ORDER RECEIPT SLIP:
-   ONLY when the customer provides their delivery address, output the order invoice slip in this EXACT box card format:
+   ONLY when the customer provides their delivery address, output the order summary in this simple, clean format:
 
-╔══════════════════════╗
-   🍕 *{clean_name}*
-╚══════════════════════╝
-🆔 *Order:* #FE-[Random 4 Digits]
-👤 *Customer:* {customer_name} • {formatted_phone}
+🍕 *{clean_name.title()}*
+Order #FE-[Random 4 Digits] Confirmed! 🎉
+
+👤 *Name:* {customer_name}
+📱 *Phone:* {formatted_phone}
 📍 *Address:* [Customer Address]
-──────────────────────
-• [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
-──────────────────────
-Subtotal: Rs. [Subtotal]
-🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}
-💵 *TOTAL BILL:* *Rs. [Total Bill]* (COD)
-──────────────────────
-🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}
-🛵 *Status:* Sent to Kitchen
 
-Shukriya for choosing *{clean_name.title()}*! ❤️
+📦 *Items:*
+• [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
+
+🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}
+💵 *Total Bill:* *Rs. [Total Bill]* (Cash on Delivery)
+🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}
+
+Khana jald aap tak pohnch jayega. Shukriya! ❤️
 
 MENU & PRICES:
 {menu_knowledge_base}
@@ -185,25 +183,20 @@ def create_order_placement_slip(order_id: str, customer_name: str, phone_number:
     items_list, subtotal, total = format_cart_summary(cart)
     if not items_list:
         items_list = "• Order items discussed in chat"
-    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().upper()
+    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
     return (
-        f"╔══════════════════════╗\n"
-        f"   🍕 *{clean_name}*\n"
-        f"╚══════════════════════╝\n"
-        f"🆔 *Order:* {order_id}\n"
-        f"👤 *Customer:* {customer_name} • {formatted_phone}\n"
-        f"📍 *Address:* {address.strip()}\n"
-        f"──────────────────────\n"
-        f"{items_list}\n"
-        f"──────────────────────\n"
-        f"Subtotal: Rs. {subtotal}\n"
+        f"🍕 *{clean_name}*\n"
+        f"Order {order_id} Confirmed! 🎉\n\n"
+        f"👤 *Name:* {customer_name}\n"
+        f"📱 *Phone:* {formatted_phone}\n"
+        f"📍 *Address:* {address.strip()}\n\n"
+        f"📦 *Items:*\n"
+        f"{items_list}\n\n"
         f"🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
-        f"💵 *TOTAL BILL:* *Rs. {total}* (COD)\n"
-        f"──────────────────────\n"
-        f"🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}\n"
-        f"🛵 *Status:* Sent to Kitchen\n\n"
-        f"Shukriya for choosing *{clean_name.title()}*! ❤️"
+        f"💵 *Total Bill:* *Rs. {total}* (Cash on Delivery)\n"
+        f"🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
+        f"Khana jald aap tak pohnch jayega. Shukriya! ❤️"
     )
 
 def get_human_menu_text() -> str:
