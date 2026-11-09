@@ -118,19 +118,34 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
         }
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        response = await client.post(url, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        if "candidates" in data and len(data["candidates"]) > 0:
-            parts = data["candidates"][0].get("content", {}).get("parts", [])
-            for p in parts:
-                if "text" in p and not p.get("thought", False):
-                    return p["text"].strip()
-            if parts and "text" in parts[0]:
-                return parts[0]["text"].strip()
-        raise ValueError("Empty response candidate from Gemini")
+    # Use fast low-latency models (gemini-3.5-flash-lite or gemini-3.8-flash)
+    models_to_try = [
+        os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        "gemini-3.8-flash",
+        "gemini-flash-latest"
+    ]
+
+    last_err = None
+    for model_name in models_to_try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(url, json=payload)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "candidates" in data and len(data["candidates"]) > 0:
+                        parts = data["candidates"][0].get("content", {}).get("parts", [])
+                        for p in parts:
+                            if "text" in p and not p.get("thought", False):
+                                return p["text"].strip()
+                        if parts and "text" in parts[0]:
+                            return parts[0]["text"].strip()
+                else:
+                    last_err = f"{model_name} returned {response.status_code}: {response.text}"
+        except Exception as e:
+            last_err = str(e)
+
+    raise ValueError(f"Gemini API generation failed: {last_err}")
 
 def format_cart_summary(cart):
     subtotal = 0
@@ -397,6 +412,7 @@ async def process_message(phone_number: str, message_text: str):
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
+            print(f"[GEMINI] Calling Gemini AI for {phone_number}...")
             history = get_history(phone_number)
             history.append({
                 "role": "user",
@@ -408,12 +424,14 @@ async def process_message(phone_number: str, message_text: str):
                 "role": "model",
                 "parts": [{"text": ai_reply}]
             })
+            print(f"[GEMINI OK] Reply generated: \"{ai_reply[:60]}...\"")
 
             # Check if order was confirmed in chat to trigger kitchen notification
             cart = get_cart(phone_number)
-            if cart.get("items") and any(k in message_text.lower() for k in ["chowk", "chuk", "house", "gali", "mohalla", "road", "cantt", "dikhan"]):
+            addr_words = ["chowk", "chuk", "chashma", "house", "gali", "mohalla", "road", "cantt", "dikhan", "near", "sector", "colony"]
+            if any(k in message_text.lower() for k in addr_words) or "#fe-" in ai_reply.lower() or "order confirm" in ai_reply.lower():
                 order_id = f"#FE-{random.randint(1000, 9999)}"
-                items_list, subtotal, total = format_cart_summary(cart)
+                items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items discussed in chat", 0, "COD")
                 order_details = {
                     "order_id": order_id,
                     "customer_phone": phone_number,
@@ -432,7 +450,8 @@ async def process_message(phone_number: str, message_text: str):
                 }
 
             return ai_reply
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[GEMINI ERROR] {e}")
 
+    print("[FALLBACK] Using local human fallback engine...")
     return generate_human_fallback(phone_number, message_text)
