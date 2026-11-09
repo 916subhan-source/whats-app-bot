@@ -10,10 +10,12 @@ if hasattr(sys.stderr, "reconfigure"):
 from typing import Optional
 from fastapi import FastAPI, Request, Query, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 import httpx
 from dotenv import load_dotenv
 
 from chatbot import process_message
+from menu import MENU_PAGES
 
 load_dotenv(override=True)
 
@@ -23,10 +25,13 @@ WEBHOOK_VERIFY_TOKEN = os.getenv("WEBHOOK_VERIFY_TOKEN", "my_food_bot_secret_123
 PORT = int(os.getenv("PORT", 3000))
 
 app = FastAPI(
-    title="🍕 WhatsApp Food Delivery Bot — FastAPI",
+    title="🍕 Cherry Peri WhatsApp Food Delivery Bot — FastAPI",
     description="High-performance async WhatsApp Cloud API food delivery chatbot built with FastAPI & Gemini AI",
-    version="2.0.0"
+    version="2.1.0"
 )
+
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ─────────────────────────────────────────────
 # Meta WhatsApp Cloud API Client
@@ -49,6 +54,34 @@ async def send_whatsapp_message(to: str, text: str):
             print(f"[ERROR] Failed to send WhatsApp message: {response.text}")
         else:
             print(f"[OK] Text message sent to {to}")
+        return response.json()
+
+async def send_whatsapp_image(to: str, media_id: str = None, image_url: str = None, caption: str = None):
+    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    image_payload = {}
+    if media_id:
+        image_payload["id"] = media_id
+    elif image_url:
+        image_payload["link"] = image_url
+    if caption:
+        image_payload["caption"] = caption
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "image",
+        "image": image_payload,
+    }
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code >= 400:
+            print(f"[ERROR] Failed to send WhatsApp image to {to}: {response.text}")
+        else:
+            print(f"[OK] Image sent to {to}")
         return response.json()
 
 async def send_whatsapp_buttons(to: str, text: str, buttons: list, header: str = None, footer: str = None):
@@ -188,6 +221,20 @@ async def handle_incoming_messages(data: dict):
 
             # Process through warm human-like conversation engine (Gemini AI + Local Fallback)
             reply = await process_message(from_number, incoming_text, customer_name)
+
+            # If reply requests sending menu images (first-time customer or asking for menu)
+            if isinstance(reply, dict) and reply.get("send_menu_images"):
+                print(f"[MENU IMAGES] Automatically sending 4 menu cards to {from_number}...")
+                for page in MENU_PAGES:
+                    try:
+                        await send_whatsapp_image(
+                            to=from_number,
+                            media_id=page.get("id"),
+                            image_url=page.get("url"),
+                            caption=page.get("caption")
+                        )
+                    except Exception as img_err:
+                        print(f"[MENU IMAGE ERROR] {img_err}")
 
             # Send back pure natural text like a human employee
             text_to_send = reply.get("text") if isinstance(reply, dict) else str(reply)

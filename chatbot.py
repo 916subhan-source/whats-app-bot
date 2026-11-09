@@ -32,6 +32,27 @@ def save_carts(carts: dict):
 user_carts = load_carts()
 conversation_history = {}
 
+# Persistent welcomed customers tracker
+WELCOMED_FILE = os.path.join(tempfile.gettempdir(), "cherry_peri_welcomed.json")
+
+def load_welcomed_users() -> set:
+    try:
+        if os.path.exists(WELCOMED_FILE):
+            with open(WELCOMED_FILE, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+    except Exception:
+        pass
+    return set()
+
+def save_welcomed_users(users: set):
+    try:
+        with open(WELCOMED_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(users), f)
+    except Exception:
+        pass
+
+welcomed_users = load_welcomed_users()
+
 def get_history(phone_number: str):
     if phone_number not in conversation_history:
         conversation_history[phone_number] = []
@@ -69,9 +90,10 @@ for cat in MENU.values():
     for item in cat["items"]:
         prices_str = ""
         if "prices" in item:
-            prices_str = " (Small: Rs. " + str(item["prices"]["small"]) + ", Medium: Rs. " + str(item["prices"]["medium"]) + ", Large: Rs. " + str(item["prices"]["large"]) + ")"
+            pr_parts = [f"{sz.title()}: Rs. {p}" for sz, p in item["prices"].items()]
+            prices_str = " (" + ", ".join(pr_parts) + ")"
         else:
-            prices_str = f" -> {RESTAURANT_INFO['currency']} {item['price']}"
+            prices_str = f" -> {RESTAURANT_INFO['currency']} {item.get('price', 0)}"
         desc = f" - {item.get('desc')}" if item.get("desc") else ""
         menu_lines.append(f"  * {item['name']}{prices_str}{desc}")
     menu_lines.append("")
@@ -416,6 +438,15 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
     return f"Jee {customer_name}, batayein aapke liye kya bhejwain?"
 
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
+    global welcomed_users
+    is_first_time = phone_number not in welcomed_users
+    is_menu_request = any(k in message_text.lower() for k in ["menu", "list", "rates", "card", "tasweer", "pictures", "deals", "deal", "price"])
+    should_send_menu_images = is_first_time or is_menu_request
+
+    if should_send_menu_images:
+        welcomed_users.add(phone_number)
+        save_welcomed_users(welcomed_users)
+
     # Check Gemini AI first for fluid, warm, human conversation
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
@@ -457,12 +488,20 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 return {
                     "text": ai_reply,
                     "order_confirmed": True,
-                    "order_details": order_details
+                    "order_details": order_details,
+                    "send_menu_images": should_send_menu_images
                 }
 
-            return ai_reply
+            return {
+                "text": ai_reply,
+                "send_menu_images": should_send_menu_images
+            }
         except Exception as e:
             print(f"[GEMINI ERROR] {e}")
 
     print("[FALLBACK] Using local human fallback engine...")
-    return generate_human_fallback(phone_number, message_text, customer_name)
+    fallback_text = generate_human_fallback(phone_number, message_text, customer_name)
+    return {
+        "text": fallback_text,
+        "send_menu_images": should_send_menu_images
+    }
