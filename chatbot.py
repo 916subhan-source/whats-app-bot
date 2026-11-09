@@ -5,7 +5,7 @@ import random
 import tempfile
 import httpx
 from dotenv import load_dotenv
-from menu import RESTAURANT_INFO, MENU
+from menu import RESTAURANT_INFO, MENU, PIZZA_SIZES, PIZZA_CRUSTS
 
 load_dotenv(override=True)
 
@@ -176,26 +176,151 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
             rows = []
             for item in cat["items"]:
                 desc = item.get("desc", "")
-                rows.append({
-                    "id": f"add_{item['id']}",
-                    "title": f"{item['name']}"[:24],
-                    "description": f"{RESTAURANT_INFO['currency']} {item['price']} • {desc}"[:72]
-                })
+                if cat_key == "pizza":
+                    # For pizzas, clicking flavor opens size selection
+                    min_price = item.get("prices", {}).get("small", item.get("price", 600))
+                    rows.append({
+                        "id": f"pzflav_{item['id']}",
+                        "title": f"🍕 {item['name']}"[:24],
+                        "description": f"From {RESTAURANT_INFO['currency']} {min_price} • Tap to Choose Size"[:72]
+                    })
+                else:
+                    rows.append({
+                        "id": f"add_{item['id']}",
+                        "title": f"{item['name']}"[:24],
+                        "description": f"{RESTAURANT_INFO['currency']} {item['price']} • {desc}"[:72]
+                    })
+
+            header_title = f"{cat['emoji']} {cat['name']}"
+            btn_label = "Choose Pizza 🍕" if cat_key == "pizza" else "Select Item 🛒"
+            prompt_text = (
+                f"Ye rahe hamare fresh *{cat['name']}*! 😋\n\n"
+                f"{'Apna pasandida pizza flavor select karein:' if cat_key == 'pizza' else 'Cart mein add karne ke liye neechay *Select Item* par tap karein:'}"
+            )
 
             return {
                 "type": "list",
-                "header": f"{cat['emoji']} {cat['name']}",
-                "text": (
-                    f"Ye rahe hamare fresh *{cat['name']}*! 😋\n\n"
-                    "Cart mein add karne ke liye neechay *Select Item* par tap karein:"
-                ),
+                "header": header_title,
+                "text": prompt_text,
                 "footer": "Cash on Delivery Available",
-                "button_label": "Select Item 🛒",
+                "button_label": btn_label,
                 "sections": [
                     {
                         "title": cat["name"][:24],
                         "rows": rows
                     }
+                ]
+            }
+
+    # 2b. Pizza Flavor Selected -> Choose Size
+    if text.startswith("pzflav_"):
+        p_id = text.replace("pzflav_", "").strip()
+        pizza_item = all_items_map.get(p_id)
+        if pizza_item:
+            rows = []
+            for sz_key, sz_info in PIZZA_SIZES.items():
+                sz_price = pizza_item.get("prices", {}).get(sz_key, pizza_item.get("price", 750))
+                rows.append({
+                    "id": f"pzsz_{p_id}_{sz_key}",
+                    "title": f"🍕 {sz_info['name']}"[:24],
+                    "description": f"{RESTAURANT_INFO['currency']} {sz_price} • {sz_info['desc']}"[:72]
+                })
+
+            return {
+                "type": "list",
+                "header": f"🍕 {pizza_item['name']}",
+                "text": (
+                    f"*{pizza_item['name']}* ke liye size select karein: 🍕\n\n"
+                    f"_{pizza_item.get('desc', '')}_"
+                ),
+                "footer": "Select Size below",
+                "button_label": "Select Pizza Size 📏",
+                "sections": [
+                    {
+                        "title": f"{pizza_item['name'][:18]} Sizes",
+                        "rows": rows
+                    }
+                ]
+            }
+
+    # 2c. Pizza Size Selected -> Choose Crust Option
+    if text.startswith("pzsz_"):
+        parts = text.split("_")
+        if len(parts) >= 3:
+            p_id = parts[1]
+            sz_key = parts[2]
+            pizza_item = all_items_map.get(p_id)
+            sz_info = PIZZA_SIZES.get(sz_key, {})
+            base_price = pizza_item.get("prices", {}).get(sz_key, pizza_item.get("price", 750))
+
+            buttons = []
+            for cr_key, cr_info in PIZZA_CRUSTS.items():
+                extra_text = f" (+{cr_info['extra']})" if cr_info["extra"] > 0 else " (+0)"
+                buttons.append({
+                    "id": f"pzcr_{p_id}_{sz_key}_{cr_key}",
+                    "title": f"{cr_info['short']}{extra_text}"[:20]
+                })
+
+            return {
+                "type": "button",
+                "header": "🥖 Choose Pizza Crust",
+                "text": (
+                    f"🍕 *{pizza_item['name']} ({sz_info.get('name', sz_key)})*\n"
+                    f"Base Price: *{RESTAURANT_INFO['currency']} {base_price}*\n\n"
+                    f"Apni pasand ki crust select karein:"
+                ),
+                "footer": "Regular, Cheese Stuffed or Kabab Crown",
+                "buttons": buttons[:3]
+            }
+
+    # 2d. Pizza Crust Selected -> Add to Cart
+    if text.startswith("pzcr_"):
+        parts = text.split("_")
+        if len(parts) >= 4:
+            p_id = parts[1]
+            sz_key = parts[2]
+            cr_key = parts[3]
+            pizza_item = all_items_map.get(p_id)
+            sz_info = PIZZA_SIZES.get(sz_key, {})
+            cr_info = PIZZA_CRUSTS.get(cr_key, {})
+
+            base_price = pizza_item.get("prices", {}).get(sz_key, pizza_item.get("price", 750))
+            total_price = base_price + cr_info.get("extra", 0)
+
+            custom_id = f"{p_id}_{sz_key}_{cr_key}"
+            custom_name = f"{pizza_item['name']} ({sz_info.get('label', sz_key)} - {cr_info.get('short', cr_key)})"
+
+            existing = next((i for i in cart["items"] if i.get("id") == custom_id), None)
+            if existing:
+                existing["quantity"] += 1
+            else:
+                cart["items"].append({
+                    "id": custom_id,
+                    "name": custom_name,
+                    "price": total_price,
+                    "quantity": 1
+                })
+
+            save_carts(user_carts)
+            items_list, subtotal, total = format_cart_summary(cart)
+
+            return {
+                "type": "button",
+                "header": "🍕 Pizza Added to Cart!",
+                "text": (
+                    f"Wah, zabardast choice! 😋\n*{custom_name}* aapke cart mein add ho gaya hai!\n\n"
+                    f"🛒 *Aapka Current Cart:*\n"
+                    f"{items_list}\n"
+                    f"Subtotal: *{RESTAURANT_INFO['currency']} {subtotal}*\n"
+                    f"Delivery Fee: *{RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}*\n"
+                    f"*Total: {RESTAURANT_INFO['currency']} {total}*\n\n"
+                    f"Kya aap mazeed items add karna chahte hain ya order place karein?"
+                ),
+                "footer": "Foodie Express & Grill",
+                "buttons": [
+                    {"id": "btn_checkout", "title": "✅ Order Now / Checkout"},
+                    {"id": "btn_menu", "title": "➕ Add More Items"},
+                    {"id": "btn_cart", "title": "🛒 View Cart"}
                 ]
             }
 
@@ -369,11 +494,6 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
                 {"id": "btn_info", "title": "📍 Kitchen Info"}
             ]
         }
-            "buttons": [
-                {"id": "btn_menu", "title": "📋 New Order"},
-                {"id": "btn_info", "title": "📍 Kitchen Info"}
-            ]
-        }
 
     # 9. Natural Language Food Mention (e.g. "1 zinger aur 1 coke")
     ITEM_KEYWORDS = [
@@ -462,8 +582,9 @@ def generate_interactive_fallback(phone_number: str, message_text: str):
     }
 
 async def process_message(phone_number: str, message_text: str):
-    # Interactive commands (btn_*, cat_*, add_*) are handled instantly by interactive engine
-    if message_text.startswith("btn_") or message_text.startswith("cat_") or message_text.startswith("add_"):
+    # Interactive commands (btn_*, cat_*, add_*, pzflav_*, pzsz_*, pzcr_*) are handled instantly by interactive engine
+    prefixes = ("btn_", "cat_", "add_", "pzflav_", "pzsz_", "pzcr_")
+    if message_text.startswith(prefixes):
         return generate_interactive_fallback(phone_number, message_text)
 
     # Check AI if natural language is used

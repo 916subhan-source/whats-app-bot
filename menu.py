@@ -10,15 +10,59 @@ RESTAURANT_INFO = {
     "estimatedTime": "30-45 mins",
 }
 
+PIZZA_SIZES = {
+    "small": {"name": "Small (7\")", "label": "Small", "desc": "1-2 Persons"},
+    "medium": {"name": "Medium (10\")", "label": "Medium", "desc": "2-3 Persons • Popular"},
+    "large": {"name": "Large (13\")", "label": "Large", "desc": "3-4 Persons • Family"},
+    "xlarge": {"name": "Extra Large (16\")", "label": "X-Large", "desc": "5-6 Persons • Party"},
+}
+
+PIZZA_CRUSTS = {
+    "reg": {"name": "Pan / Regular Crust", "short": "Regular", "extra": 0},
+    "chs": {"name": "Cheese Stuffed Crust", "short": "Cheese Stuffed", "extra": 150},
+    "kbb": {"name": "Kabab Crown Crust", "short": "Kabab Crown", "extra": 200},
+}
+
 MENU = {
     "pizza": {
         "emoji": "🍕",
         "name": "Pizzas",
         "items": [
-            {"id": "p1", "name": "Margherita (Medium)", "price": 600, "desc": "Rich mozzarella cheese & tomato basil sauce"},
-            {"id": "p2", "name": "Pepperoni (Medium)", "price": 750, "desc": "Loaded with spicy beef pepperoni slices"},
-            {"id": "p3", "name": "BBQ Chicken (Medium)", "price": 800, "desc": "Smoky BBQ chicken chunks, onions & cheese"},
-            {"id": "p4", "name": "Veggie Supreme (Medium)", "price": 700, "desc": "Olives, mushrooms, bell peppers & onions"},
+            {
+                "id": "p1",
+                "name": "Chicken Fajita",
+                "price": 750,
+                "desc": "Tender fajita chicken, onions, bell peppers & mozzarella",
+                "prices": {"small": 450, "medium": 750, "large": 1150, "xlarge": 1550}
+            },
+            {
+                "id": "p2",
+                "name": "Pepperoni Classic",
+                "price": 750,
+                "desc": "Loaded with spicy beef pepperoni slices & cheese",
+                "prices": {"small": 450, "medium": 750, "large": 1150, "xlarge": 1550}
+            },
+            {
+                "id": "p3",
+                "name": "BBQ Smoky Chicken",
+                "price": 800,
+                "desc": "Smoky BBQ chicken chunks, caramelized onions & cheese",
+                "prices": {"small": 500, "medium": 800, "large": 1200, "xlarge": 1600}
+            },
+            {
+                "id": "p4",
+                "name": "Cheese Margherita",
+                "price": 650,
+                "desc": "Rich 100% mozzarella cheese & authentic tomato basil sauce",
+                "prices": {"small": 400, "medium": 650, "large": 1000, "xlarge": 1400}
+            },
+            {
+                "id": "p5",
+                "name": "Veggie Supreme",
+                "price": 650,
+                "desc": "Olives, mushrooms, bell peppers, tomatoes & onions",
+                "prices": {"small": 400, "medium": 650, "large": 1000, "xlarge": 1400}
+            },
         ],
     },
     "grill": {
