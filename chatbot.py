@@ -21,12 +21,20 @@ def get_cart(phone_number: str):
         user_carts[phone_number] = {"items": [], "address": None}
     return user_carts[phone_number]
 
-# Menu knowledge base string
+def get_all_items_map():
+    all_items = {}
+    for cat in MENU.values():
+        for item in cat["items"]:
+            all_items[item["id"]] = item
+    return all_items
+
+# Menu knowledge base string for Gemini AI
 menu_lines = []
 for cat in MENU.values():
     menu_lines.append(f"Category: {cat['name']} ({cat['emoji']})")
     for item in cat["items"]:
-        menu_lines.append(f"  * {item['name']} -> {RESTAURANT_INFO['currency']} {item['price']}")
+        desc = f" - {item.get('desc')}" if item.get("desc") else ""
+        menu_lines.append(f"  * {item['name']} -> {RESTAURANT_INFO['currency']} {item['price']}{desc}")
     menu_lines.append("")
 menu_knowledge_base = "\n".join(menu_lines)
 
@@ -39,7 +47,7 @@ PERSONALITY & LANGUAGE:
 3. Match the user's language and tone. If they speak Urdu, reply in sweet/polite Roman Urdu. If English, reply in English.
 
 DUTIES:
-1. Help customers choose what to eat, recommend popular items, explain items, and answer questions.
+1. Help customers choose what to eat, recommend popular pizzas, burgers, and charcoal grills, and answer questions.
 2. Keep calculations accurate based on the menu prices.
 3. When taking an order:
    - Keep track of what they want.
@@ -67,7 +75,7 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
         },
         {
             "role": "model",
-            "parts": [{"text": "Understood! I am the friendly AI WhatsApp assistant for Foodie Express."}]
+            "parts": [{"text": "Understood! I am the friendly AI WhatsApp assistant for Foodie Express & Grill."}]
         }
     ]
     contents.extend(user_history)
@@ -80,7 +88,7 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
         }
     }
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     async with httpx.AsyncClient(timeout=5.0) as client:
         response = await client.post(url, json=payload)
         response.raise_for_status()
@@ -94,46 +102,258 @@ async def call_gemini_ai(user_history, api_key: str) -> str:
                 return parts[0]["text"].strip()
         raise ValueError("Empty response candidate from Gemini")
 
-def generate_intelligent_fallback(phone_number: str, message_text: str) -> str:
+def format_cart_summary(cart):
+    subtotal = 0
+    items_list = ""
+    for item in cart["items"]:
+        item_total = item["price"] * item["quantity"]
+        subtotal += item_total
+        items_list += f"• {item['quantity']}x {item['name']} — *{RESTAURANT_INFO['currency']} {item_total}*\n"
+    total = subtotal + RESTAURANT_INFO["deliveryFee"]
+    return items_list, subtotal, total
+
+def generate_interactive_fallback(phone_number: str, message_text: str):
     text = message_text.lower().strip()
     cart = get_cart(phone_number)
+    all_items_map = get_all_items_map()
 
-    # 1. Menu request
-    if any(k in text for k in ["menu", "kya hai", "list", "rates", "price", "rate", "cheezain"]):
-        reply = f"📋 *{RESTAURANT_INFO['name']} — Menu*\n\n"
-        for cat in MENU.values():
-            reply += f"{cat['emoji']} *{cat['name']}*\n"
+    # 1. Menu button or menu keyword -> Interactive List of Categories
+    if text in ["btn_menu", "menu", "kya hai", "list", "rates", "rate", "cheezain", "khana"]:
+        rows = []
+        for cat_key, cat in MENU.items():
+            item_names = ", ".join([it["name"].split(" ")[0] for it in cat["items"][:3]])
+            rows.append({
+                "id": f"cat_{cat_key}",
+                "title": f"{cat['emoji']} {cat['name']}"[:24],
+                "description": f"{item_names}..."[:72]
+            })
+
+        return {
+            "type": "list",
+            "header": f"🍽️ {RESTAURANT_INFO['name']}",
+            "text": (
+                "Khaane mein kya pasand karenge? 😋\n\n"
+                "Neechay *Menu Categories* par click karke apni pasandida category select karein:"
+            ),
+            "footer": f"Delivery: {RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']} • {RESTAURANT_INFO['estimatedTime']}",
+            "button_label": "Menu Categories 🍕",
+            "sections": [
+                {
+                    "title": "Select a Category",
+                    "rows": rows
+                }
+            ]
+        }
+
+    # 2. Category Selected from List -> Interactive List of Items
+    if text.startswith("cat_"):
+        cat_key = text.replace("cat_", "").strip()
+        cat = MENU.get(cat_key)
+        if cat:
+            rows = []
             for item in cat["items"]:
-                reply += f"  • {item['name']} — *{RESTAURANT_INFO['currency']} {item['price']}*\n"
-            reply += "\n"
-        reply += f"🛵 Delivery Fee: *{RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}* ({RESTAURANT_INFO['estimatedTime']})\n\n"
-        reply += "Order karne ke liye bas item ka naam likhein (e.g. *1 Zinger Burger aur 1 Coke*)!"
-        return reply
+                desc = item.get("desc", "")
+                rows.append({
+                    "id": f"add_{item['id']}",
+                    "title": f"{item['name']}"[:24],
+                    "description": f"{RESTAURANT_INFO['currency']} {item['price']} • {desc}"[:72]
+                })
 
-    # 2. Check for food items mentioned
+            return {
+                "type": "list",
+                "header": f"{cat['emoji']} {cat['name']}",
+                "text": (
+                    f"Ye rahe hamare fresh *{cat['name']}*! 😋\n\n"
+                    "Cart mein add karne ke liye neechay *Select Item* par tap karein:"
+                ),
+                "footer": "Cash on Delivery Available",
+                "button_label": "Select Item 🛒",
+                "sections": [
+                    {
+                        "title": cat["name"][:24],
+                        "rows": rows
+                    }
+                ]
+            }
+
+    # 3. Add Item tapped from List (e.g. add_p1, add_b2, add_g1)
+    if text.startswith("add_"):
+        item_id = text.replace("add_", "").strip()
+        item = all_items_map.get(item_id)
+        if item:
+            # Check if item already exists in cart -> increment quantity
+            existing = next((i for i in cart["items"] if i["id"] == item["id"]), None)
+            if existing:
+                existing["quantity"] += 1
+            else:
+                cart["items"].append({**item, "quantity": 1})
+
+            items_list, subtotal, total = format_cart_summary(cart)
+
+            return {
+                "type": "button",
+                "header": "✅ Item Added to Cart!",
+                "text": (
+                    f"Wah, zabardast! 😋 *{item['name']}* aapke cart mein add ho gaya hai.\n\n"
+                    f"🛒 *Aapka Current Cart:*\n"
+                    f"{items_list}\n"
+                    f"Subtotal: *{RESTAURANT_INFO['currency']} {subtotal}*\n"
+                    f"Delivery: *{RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}*\n"
+                    f"*Total: {RESTAURANT_INFO['currency']} {total}*\n\n"
+                    f"Kya aap mazeed items add karna chahte hain ya order place karein?"
+                ),
+                "footer": "Foodie Express & Grill",
+                "buttons": [
+                    {"id": "btn_checkout", "title": "✅ Order Now / Checkout"},
+                    {"id": "btn_menu", "title": "➕ Add More Items"},
+                    {"id": "btn_cart", "title": "🛒 View Cart"}
+                ]
+            }
+
+    # 4. View Cart (btn_cart, cart)
+    if text in ["btn_cart", "cart", "mera order", "basket"]:
+        if not cart["items"]:
+            return {
+                "type": "button",
+                "header": "🛒 Your Cart is Empty",
+                "text": "Aapke cart mein filhal koi item nahi hai.\n\nMenu dekh kar mazeedaar khana choose karein! 😊",
+                "footer": "Foodie Express & Grill",
+                "buttons": [
+                    {"id": "btn_menu", "title": "📋 View Menu"},
+                    {"id": "btn_info", "title": "📍 Location & Timing"}
+                ]
+            }
+
+        items_list, subtotal, total = format_cart_summary(cart)
+        return {
+            "type": "button",
+            "header": "🛒 Your Food Cart",
+            "text": (
+                f"Aapka order review:\n\n"
+                f"{items_list}\n"
+                f"Subtotal: *{RESTAURANT_INFO['currency']} {subtotal}*\n"
+                f"Delivery Fee: *{RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}*\n"
+                f"*Total: {RESTAURANT_INFO['currency']} {total}* (COD)\n"
+            ),
+            "footer": f"Delivery in {RESTAURANT_INFO['estimatedTime']}",
+            "buttons": [
+                {"id": "btn_checkout", "title": "✅ Proceed Checkout"},
+                {"id": "btn_menu", "title": "➕ Add More Items"},
+                {"id": "btn_clear", "title": "🗑️ Clear Cart"}
+            ]
+        }
+
+    # 5. Clear Cart (btn_clear, clear)
+    if text in ["btn_clear", "clear", "khali", "delete cart"]:
+        cart["items"] = []
+        return {
+            "type": "button",
+            "header": "🗑️ Cart Cleared",
+            "text": "Aapka cart empty kar diya gaya hai. Jab bhi dil chahe, naya order shuru karein! 😊",
+            "footer": "Foodie Express & Grill",
+            "buttons": [
+                {"id": "btn_menu", "title": "📋 View Menu"}
+            ]
+        }
+
+    # 6. Checkout (btn_checkout, checkout, order now)
+    if text in ["btn_checkout", "checkout", "order now", "deliver"]:
+        if not cart["items"]:
+            return {
+                "type": "button",
+                "header": "🛒 Cart is Empty",
+                "text": "Checkout karne se pehle kripya Menu se items choose karein! 🍕",
+                "footer": "Foodie Express & Grill",
+                "buttons": [
+                    {"id": "btn_menu", "title": "📋 View Menu"}
+                ]
+            }
+
+        items_list, subtotal, total = format_cart_summary(cart)
+        return {
+            "type": "button",
+            "header": "🛵 Delivery Address Required",
+            "text": (
+                f"Aapka order bilkul tayaar hai:\n\n"
+                f"{items_list}\n"
+                f"*Total Payable: {RESTAURANT_INFO['currency']} {total}* (Cash on Delivery)\n\n"
+                f"📍 Meharbani karke apna *Delivery Address* (Ghar / Mohalla / Road / City) reply mein send kijiye taake rider foran rawana ho sake!"
+            ),
+            "footer": f"Delivery in {RESTAURANT_INFO['estimatedTime']}",
+            "buttons": [
+                {"id": "btn_menu", "title": "➕ Add More Items"},
+                {"id": "btn_clear", "title": "🗑️ Cancel"}
+            ]
+        }
+
+    # 7. Location & Timings (btn_info, location, timing)
+    if text in ["btn_info", "location", "kahan", "timing", "time", "kab tak", "open"]:
+        return {
+            "type": "button",
+            "header": "📍 Location & Kitchen Timing",
+            "text": (
+                f"*{RESTAURANT_INFO['name']}*\n"
+                f"_{RESTAURANT_INFO['tagline']}_\n\n"
+                f"🏢 *Location:* Circular Road, D.I. Khan\n"
+                f"🕒 *Timings:* Rozana 12:00 PM (Dopehar) se 1:00 AM (Raat) tak\n"
+                f"💵 *Payment:* Cash on Delivery (COD) / JazzCash / EasyPaisa\n"
+                f"🛵 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']} pure DI Khan mein!"
+            ),
+            "footer": "D.I. Khan Fast Delivery",
+            "buttons": [
+                {"id": "btn_menu", "title": "📋 View Menu"},
+                {"id": "btn_cart", "title": "🛒 View Cart"}
+            ]
+        }
+
+    # 8. Address Provided (order confirmation)
+    if cart["items"] and (any(k in text for k in ["house", "street", "gali", "mohalla", "road", "near", "dikhan", "islamabad", "sector"]) or len(text.split()) >= 3):
+        cart["address"] = message_text
+        order_id = f"#FE-{random.randint(1000, 9999)}"
+        items_list, subtotal, total = format_cart_summary(cart)
+        cart["items"] = []  # Reset cart after order placed
+
+        return {
+            "type": "button",
+            "header": f"🎉 Order Confirmed! ({order_id})",
+            "text": (
+                f"Shukriya! Aapka order kitchen mein tayaar ho raha hai aur *{RESTAURANT_INFO['estimatedTime']}* mein pohnch jayega!\n\n"
+                f"{items_list}\n"
+                f"*Total Bill: {RESTAURANT_INFO['currency']} {total}*\n"
+                f"📍 *Delivery Address:* {message_text}\n"
+                f"💵 *Payment Method:* Cash on Delivery (COD)\n\n"
+                f"Khana garma garam pohnchne tak intezar farmaiye. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
+            ),
+            "footer": "Enjoy your delicious meal!",
+            "buttons": [
+                {"id": "btn_menu", "title": "📋 New Order"},
+                {"id": "btn_info", "title": "📍 Kitchen Info"}
+            ]
+        }
+
+    # 9. Natural Language Food Mention (e.g. "1 zinger aur 1 coke")
     ITEM_KEYWORDS = [
         {"id": "b2", "keywords": ["zinger", "chicken burger"]},
-        {"id": "b1", "keywords": ["beef burger", "beef"]},
+        {"id": "b1", "keywords": ["classic beef", "beef burger", "beef"]},
         {"id": "b3", "keywords": ["double cheese", "cheese burger"]},
         {"id": "b4", "keywords": ["veggie burger"]},
         {"id": "p2", "keywords": ["pepperoni"]},
         {"id": "p1", "keywords": ["margherita"]},
         {"id": "p3", "keywords": ["bbq chicken", "bbq pizza", "bbq"]},
         {"id": "p4", "keywords": ["veggie supreme", "veggie pizza"]},
+        {"id": "g1", "keywords": ["tikka", "chicken tikka"]},
+        {"id": "g2", "keywords": ["malai boti", "malai"]},
+        {"id": "g3", "keywords": ["seekh kabab", "kabab"]},
+        {"id": "g4", "keywords": ["fish", "grilled fish"]},
         {"id": "s1", "keywords": ["fries", "finger chips", "french fries"]},
         {"id": "s2", "keywords": ["nuggets", "chicken nuggets"]},
         {"id": "s3", "keywords": ["garlic bread"]},
         {"id": "s4", "keywords": ["coleslaw"]},
         {"id": "d1", "keywords": ["coke", "coca cola", "cola", "cold drink"]},
-        {"id": "d2", "keywords": ["fresh lime", "lime"]},
+        {"id": "d2", "keywords": ["mint lemonade", "lemonade", "fresh lime"]},
         {"id": "d3", "keywords": ["mango shake", "shake"]},
         {"id": "d4", "keywords": ["water", "water bottle", "paani"]},
     ]
-
-    all_items_map = {}
-    for cat in MENU.values():
-        for item in cat["items"]:
-            all_items_map[item["id"]] = item
 
     found_items = []
     for entry in ITEM_KEYWORDS:
@@ -153,87 +373,56 @@ def generate_intelligent_fallback(phone_number: str, message_text: str) -> str:
                 found_items.append({**item, "quantity": qty})
 
     if found_items:
-        cart["items"] = found_items
-        subtotal = 0
-        items_list = ""
-        for item in found_items:
-            item_total = item["price"] * item["quantity"]
-            subtotal += item_total
-            items_list += f"• {item['quantity']}x {item['name']} — *{RESTAURANT_INFO['currency']} {item_total}*\n"
-        total = subtotal + RESTAURANT_INFO["deliveryFee"]
+        for f_item in found_items:
+            existing = next((i for i in cart["items"] if i["id"] == f_item["id"]), None)
+            if existing:
+                existing["quantity"] += f_item["quantity"]
+            else:
+                cart["items"].append(f_item)
 
-        return (
-            f"Wah, zabardast choice! 😋 Aapka order note ho gaya hai:\n\n"
-            f"{items_list}\n"
-            f"Subtotal: *{RESTAURANT_INFO['currency']} {subtotal}*\n"
-            f"Delivery Fee: *{RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}*\n"
-            f"*Total: {RESTAURANT_INFO['currency']} {total}*\n\n"
-            f"📍 Meharbani karke apna *Delivery Address* (Ghar / Mohalla / City) send kijiye taake rider foran rawana ho sake!"
-        )
+        items_list, subtotal, total = format_cart_summary(cart)
+        return {
+            "type": "button",
+            "header": "🛒 Items Added to Order!",
+            "text": (
+                f"Wah, zabardast choice! 😋 Aapka order note ho gaya hai:\n\n"
+                f"{items_list}\n"
+                f"Subtotal: *{RESTAURANT_INFO['currency']} {subtotal}*\n"
+                f"Delivery Fee: *{RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']}*\n"
+                f"*Total: {RESTAURANT_INFO['currency']} {total}*\n\n"
+                f"📍 Apna *Delivery Address* likhein ya direct *Checkout* dabayein:"
+            ),
+            "footer": "Foodie Express & Grill",
+            "buttons": [
+                {"id": "btn_checkout", "title": "✅ Order Now / Checkout"},
+                {"id": "btn_menu", "title": "➕ Add More Items"},
+                {"id": "btn_cart", "title": "🛒 View Cart"}
+            ]
+        }
 
-    # 3. Address provided
-    if cart["items"] and any(k in text for k in ["house", "street", "gali", "mohalla", "road", "near", "dikhan", "islamabad", "sector"]) or (cart["items"] and len(text.split()) >= 3):
-        cart["address"] = message_text
-        order_id = f"#FE-{random.randint(1000, 9999)}"
-        cart["items"] = []
+    # 10. Default Welcome Buttons
+    return {
+        "type": "button",
+        "header": f"🍕 {RESTAURANT_INFO['name']}",
+        "text": (
+            f"Assalam-o-Alaikum! 👋 Welcome to *{RESTAURANT_INFO['name']}*! 🍕🍗\n\n"
+            f"Main aapka online food ordering assistant hoon. Aaj kya khane ka mood hai?\n\n"
+            f"Neechay buttons se option chunein ya direct message likhein:"
+        ),
+        "footer": f"Delivery: {RESTAURANT_INFO['currency']} {RESTAURANT_INFO['deliveryFee']} • Fast COD",
+        "buttons": [
+            {"id": "btn_menu", "title": "📋 View Menu"},
+            {"id": "btn_cart", "title": "🛒 View Cart"},
+            {"id": "btn_info", "title": "📍 Location & Timing"}
+        ]
+    }
 
-        return (
-            f"🎉 *Order Confirmed!* (ID: *{order_id}*)\n\n"
-            f"Aapka order kitchen mein tayaar ho raha hai aur *{RESTAURANT_INFO['estimatedTime']}* mein pohnch jayega!\n\n"
-            f"📍 *Delivery Address:* {message_text}\n"
-            f"💵 *Payment:* Cash on Delivery (COD)\n\n"
-            f"Khana garma garam pohnchne tak intezar farmaiye. Shukriya for choosing *{RESTAURANT_INFO['name']}*! ❤️"
-        )
+async def process_message(phone_number: str, message_text: str):
+    # Interactive commands (btn_*, cat_*, add_*) are handled instantly by interactive engine
+    if message_text.startswith("btn_") or message_text.startswith("cat_") or message_text.startswith("add_"):
+        return generate_interactive_fallback(phone_number, message_text)
 
-    # 4. Location / Address query
-    if any(k in text for k in ["location", "kahan", "kider", "kidhar", "address kahan"]):
-        return (
-            f"📍 *{RESTAURANT_INFO['name']} Location:*\n\n"
-            f"Hamara kitchen Circular Road, D.I. Khan main waqay hai! 🏢\n"
-            f"Hum pure DI Khan shehar mein *{RESTAURANT_INFO['estimatedTime']}* main garma garam delivery pohnchate hain! 🛵\n\n"
-            f"Order book karne ke liye likhein: *menu* ya direct item ka naam batayein!"
-        )
-
-    # 5. Timing query
-    if any(k in text for k in ["timing", "time", "kab tak", "open", "khula"]):
-        return (
-            f"🕒 *Kitchen Timings:*\n\n"
-            f"Hum rozana *12:00 PM (Dopehar)* se lekar *1:00 AM (Raat)* tak open rehte hain!\n\n"
-            f"Abhi fresh khana mangwane ke liye batayein aapke liye kya bhejoon? 😊"
-        )
-
-    # 6. Payment query
-    if any(k in text for k in ["payment", "pesay", "paise", "easypaisa", "jazzcash", "card"]):
-        return (
-            f"💵 *Payment Method:*\n\n"
-            f"Hum *Cash on Delivery (COD)* aur JazzCash / EasyPaisa accept karte hain rider ke pohnchne par.\n\n"
-            f"Aap befikar ho kar order karein! Kya order karna chahenge? 🍕"
-        )
-
-    # 7. Cancellations / Negatives ("nhi", "no", "cancel")
-    if text in ["nhi", "nahi", "no", "cancel", "bas"]:
-        return (
-            f"Theek hai janab! Koi masla nahi. 😊\n"
-            f"Jab bhi bhook lagay, bas ek message kar dijiye ga. *{RESTAURANT_INFO['name']}* hamesha aapki khidmat ke liye hazir hai! ❤️"
-        )
-
-    # 8. Add more items ("aur", "khuch aur")
-    if any(k in text for k in ["aur", "more", "add", "bhi"]):
-        return (
-            f"Jee zaroor! Batayein aur kya add karoon aapke order mein? 😋\n\n"
-            f"Burgers 🍔, Pizzas 🍕, Crispy Fries 🍟, ya Cold Drinks 🥤?"
-        )
-
-    # 9. Default warm welcome
-    return (
-        f"Assalam-o-Alaikum! 👋 Welcome to *{RESTAURANT_INFO['name']}*! 🍕\n\n"
-        f"Main aapka food ordering assistant hoon. Aaj kya khane ka mood hai?\n\n"
-        f"• Hamara *Menu* dekhne ke liye likhein: *menu*\n"
-        f"• Ya direct order karein, jaise: *1 Chicken Zinger Burger aur 1 Coke*\n\n"
-        f"Bataiye aapke liye kya bhejoon? 😊"
-    )
-
-async def process_message(phone_number: str, message_text: str) -> str:
+    # Check AI if natural language is used
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
@@ -249,8 +438,7 @@ async def process_message(phone_number: str, message_text: str) -> str:
                 "parts": [{"text": ai_reply}]
             })
             return ai_reply
-        except Exception as e:
-            # Fall back to our rich conversational engine instantly
+        except Exception:
             pass
 
-    return generate_intelligent_fallback(phone_number, message_text)
+    return generate_interactive_fallback(phone_number, message_text)

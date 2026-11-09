@@ -48,7 +48,79 @@ async def send_whatsapp_message(to: str, text: str):
         if response.status_code >= 400:
             print(f"[ERROR] Failed to send WhatsApp message: {response.text}")
         else:
-            print(f"[OK] Message sent to {to}")
+            print(f"[OK] Text message sent to {to}")
+        return response.json()
+
+async def send_whatsapp_buttons(to: str, text: str, buttons: list, header: str = None, footer: str = None):
+    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": text},
+            "action": {
+                "buttons": [
+                    {
+                        "type": "reply",
+                        "reply": {
+                            "id": b["id"],
+                            "title": b["title"][:20]
+                        }
+                    }
+                    for b in buttons[:3]
+                ]
+            }
+        }
+    }
+    if header:
+        payload["interactive"]["header"] = {"type": "text", "text": header[:60]}
+    if footer:
+        payload["interactive"]["footer"] = {"text": footer[:60]}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code >= 400:
+            print(f"[ERROR] Failed to send WhatsApp buttons: {response.text}")
+        else:
+            print(f"[OK] Interactive buttons sent to {to}")
+        return response.json()
+
+async def send_whatsapp_list(to: str, text: str, button_label: str, sections: list, header: str = None, footer: str = None):
+    url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "body": {"text": text},
+            "action": {
+                "button": button_label[:20],
+                "sections": sections
+            }
+        }
+    }
+    if header:
+        payload["interactive"]["header"] = {"type": "text", "text": header[:60]}
+    if footer:
+        payload["interactive"]["footer"] = {"text": footer[:60]}
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code >= 400:
+            print(f"[ERROR] Failed to send WhatsApp list: {response.text}")
+        else:
+            print(f"[OK] Interactive list sent to {to}")
         return response.json()
 
 async def mark_as_read(message_id: str):
@@ -68,7 +140,7 @@ async def mark_as_read(message_id: str):
     except Exception:
         pass
 
-# Background task to process messages without delaying Meta webhook 200 response
+# Message processor handler
 async def handle_incoming_messages(data: dict):
     try:
         entry = data.get("entry", [])
@@ -89,22 +161,54 @@ async def handle_incoming_messages(data: dict):
             if msg_id:
                 await mark_as_read(msg_id)
 
-            if msg_type != "text":
+            incoming_text = ""
+            if msg_type == "text":
+                incoming_text = message.get("text", {}).get("body", "")
+            elif msg_type == "interactive":
+                interactive = message.get("interactive", {})
+                itype = interactive.get("type")
+                if itype == "button_reply":
+                    incoming_text = interactive.get("button_reply", {}).get("id", "")
+                elif itype == "list_reply":
+                    incoming_text = interactive.get("list_reply", {}).get("id", "")
+            else:
+                # Fallback for voice/images/stickers
                 await send_whatsapp_message(
                     from_number,
-                    "🤖 Sorry, I can only understand text messages right now.\n\nPlease type *hi* or *menu* to get started!"
+                    "🤖 Sorry, I can only understand text & interactive buttons right now.\n\nPlease type *hi* or *menu* to get started!"
                 )
                 continue
 
-            incoming_text = message.get("text", {}).get("body", "")
             print(f"[MSG] Message from {from_number}: \"{incoming_text}\"")
 
-            # Process through conversational AI engine
+            # Process through conversational/interactive engine
             reply = await process_message(from_number, incoming_text)
-            print(f"[REPLY] Reply to {from_number}: \"{reply[:80]}...\"")
 
-            # Send WhatsApp message back
-            await send_whatsapp_message(from_number, reply)
+            # Send back appropriate WhatsApp format
+            if isinstance(reply, dict):
+                rtype = reply.get("type")
+                if rtype == "button":
+                    await send_whatsapp_buttons(
+                        to=from_number,
+                        text=reply.get("text", ""),
+                        buttons=reply.get("buttons", []),
+                        header=reply.get("header"),
+                        footer=reply.get("footer"),
+                    )
+                elif rtype == "list":
+                    await send_whatsapp_list(
+                        to=from_number,
+                        text=reply.get("text", ""),
+                        button_label=reply.get("button_label", "Select Option"),
+                        sections=reply.get("sections", []),
+                        header=reply.get("header"),
+                        footer=reply.get("footer"),
+                    )
+                else:
+                    await send_whatsapp_message(from_number, reply.get("text", str(reply)))
+            else:
+                print(f"[REPLY] Reply to {from_number}: \"{str(reply)[:80]}...\"")
+                await send_whatsapp_message(from_number, str(reply))
     except Exception as e:
         print(f"[ERROR] Error handling messages: {e}")
 
