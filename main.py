@@ -216,7 +216,9 @@ async def handle_incoming_messages(data: dict):
             if isinstance(reply, dict) and reply.get("order_confirmed"):
                 owner_phone = os.getenv("OWNER_PHONE_NUMBER")
                 if owner_phone:
-                    clean_owner = owner_phone.replace("+", "").replace(" ", "").replace("-", "")
+                    clean_owner = owner_phone.replace("+", "").replace(" ", "").replace("-", "").strip()
+                    if clean_owner.startswith("0"):
+                        clean_owner = "92" + clean_owner[1:]
                     details = reply.get("order_details", {})
                     kitchen_alert = (
                         f"🚨 *NEW ORDER RECEIVED!* 🍕🍗\n\n"
