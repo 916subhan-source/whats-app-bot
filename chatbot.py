@@ -79,39 +79,40 @@ menu_knowledge_base = "\n".join(menu_lines)
 
 def build_system_instruction(customer_name: str, phone_number: str) -> str:
     formatted_phone = format_phone_number(phone_number)
-    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().upper()
+    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
     return f"""
-You are the WhatsApp ordering assistant for "{clean_name.title()}".
+You are the WhatsApp ordering assistant for "{clean_name}".
 
 AUTO-DETECTED CUSTOMER:
 - Name: {customer_name}
 - Number: {formatted_phone}
 
 CRITICAL RULES:
-1. ALL conversational replies MUST be ultra-short: strictly 5 to 10 words only!
+1. STRICT EMOJI LIMIT: Use at most ONE simple emoji in the entire reply. NEVER spam colorful emojis on every line! Keep it clean, minimal, and professional.
+2. ALL conversational replies MUST be ultra-short: strictly 5 to 10 words only!
    - Examples:
-     * "Assalam-o-Alaikum! Aaj kya mangwayein ge aap? 🍕"
-     * "1 Zinger Burger note ho gaya! Address batayein. 🛵"
-     * "Theek hai, order cancel kar diya gaya. 👍"
-2. FINAL ORDER RECEIPT SLIP:
-   ONLY when the customer provides their delivery address, output the order summary in this simple, clean format:
+     * "Assalam-o-Alaikum! Aaj kya mangwayein ge aap?"
+     * "1 Zinger Burger note ho gaya! Address batayein."
+     * "Theek hai, order cancel kar diya gaya."
+3. FINAL ORDER RECEIPT SLIP:
+   ONLY when the customer provides their delivery address, output the order summary in this clean format (maximum 1 emoji):
 
-🍕 *{clean_name.title()}*
-Order #FE-[Random 4 Digits] Confirmed! 🎉
+*{clean_name}*
+Order #FE-[Random 4 Digits] Confirmed ✅
 
-👤 *Name:* {customer_name}
-📱 *Phone:* {formatted_phone}
-📍 *Address:* [Customer Address]
+*Customer:* {customer_name}
+*Phone:* {formatted_phone}
+*Address:* [Customer Address]
 
-📦 *Items:*
+*Items:*
 • [Qty]x [Item Name with Size/Crust] — Rs. [Item Price x Qty]
 
-🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}
-💵 *Total Bill:* *Rs. [Total Bill]* (Cash on Delivery)
-🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}
+Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}
+*Total Bill:* *Rs. [Total Bill]* (Cash on Delivery)
+*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
 
-Khana jald aap tak pohnch jayega. Shukriya! ❤️
+Khana jald deliver hoga. Shukriya!
 
 MENU & PRICES:
 {menu_knowledge_base}
@@ -186,17 +187,17 @@ def create_order_placement_slip(order_id: str, customer_name: str, phone_number:
     clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
     return (
-        f"🍕 *{clean_name}*\n"
-        f"Order {order_id} Confirmed! 🎉\n\n"
-        f"👤 *Name:* {customer_name}\n"
-        f"📱 *Phone:* {formatted_phone}\n"
-        f"📍 *Address:* {address.strip()}\n\n"
-        f"📦 *Items:*\n"
+        f"*{clean_name}*\n"
+        f"Order {order_id} Confirmed ✅\n\n"
+        f"*Customer:* {customer_name}\n"
+        f"*Phone:* {formatted_phone}\n"
+        f"*Address:* {address.strip()}\n\n"
+        f"*Items:*\n"
         f"{items_list}\n\n"
-        f"🛵 Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
-        f"💵 *Total Bill:* *Rs. {total}* (Cash on Delivery)\n"
-        f"🕒 *Delivery Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
-        f"Khana jald aap tak pohnch jayega. Shukriya! ❤️"
+        f"Delivery: Rs. {RESTAURANT_INFO['deliveryFee']}\n"
+        f"*Total Bill:* *Rs. {total}* (Cash on Delivery)\n"
+        f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
+        f"Khana jald deliver hoga. Shukriya!"
     )
 
 def get_human_menu_text() -> str:
@@ -242,7 +243,7 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
 
     # 1. Greetings ("hi", "hello", "salam", "aoa", "hey")
     if text in ["hi", "hello", "salam", "assalam o alaikum", "aoa", "hey", "start"]:
-        return f"Assalam-o-Alaikum {customer_name}! Aaj kya khayein ge aap? 🍕"
+        return f"Assalam-o-Alaikum {customer_name}! Aaj kya mangwayein ge aap?"
 
     # 2. Menu request
     if any(k in text for k in ["menu", "kya hai", "list", "rates", "rate", "cheezain", "khana", "items"]):
@@ -251,26 +252,26 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
     # 3. View Cart / Total Bill
     if any(k in text for k in ["cart", "bill", "mera order", "total kitna", "basket"]) and not any(k in text for k in ["clear", "cancel", "khatam"]):
         if not cart["items"]:
-            return f"Cart khali hai. Kya order karna chahenge? 🍕"
+            return f"Cart khali hai. Kya order karna chahenge?"
         _, _, total = format_cart_summary(cart)
-        return f"Total bill Rs. {total} hai. Delivery address send karein? 🛵"
+        return f"Total bill Rs. {total} hai. Delivery address send karein."
 
     # 4. Clear / Cancel Cart
     if any(k in text for k in ["clear", "cancel", "khali", "delete", "nhi chahiye", "band karo"]):
         cart["items"] = []
         cart["awaiting_address"] = False
         save_carts(user_carts)
-        return f"Theek hai, aapka order cancel kar diya gaya. 👍"
+        return f"Theek hai, aapka order cancel kar diya gaya."
 
     # 5. Location / Timings / Payments
     if any(k in text for k in ["location", "kahan", "address kahan", "kidhar", "kider"]):
-        return "Circular Road, D.I. Khan par hamara kitchen hai. 📍"
+        return "Circular Road, D.I. Khan par hamara kitchen hai."
 
     if any(k in text for k in ["timing", "time", "kab tak", "open", "khula", "band"]):
-        return "Rozana dopehar 12:00 se raat 1:00 tak open hain. 🕒"
+        return "Rozana dopehar 12:00 se raat 1:00 tak open hain."
 
     if any(k in text for k in ["payment", "pesay", "paise", "easypaisa", "jazzcash", "card"]):
-        return "Cash on Delivery aur JazzCash dono accept karte hain. 💵"
+        return "Cash on Delivery aur JazzCash dono accept karte hain."
 
     # 6. Address Provided -> Beautiful Official Order Slip Confirmation
     ADDRESS_KEYWORDS = [
@@ -392,10 +393,10 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
         save_carts(user_carts)
         items_list, subtotal, total = format_cart_summary(cart)
 
-        return f"Order note ho gaya! Delivery address send karein please. 🛵"
+        return f"Order note ho gaya! Delivery address send karein please."
 
     # 8. Friendly Natural Fallback (5 to 10 words)
-    return f"Jee {customer_name}, batayein aapke liye kya bhejwain? 🍕"
+    return f"Jee {customer_name}, batayein aapke liye kya bhejwain?"
 
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
     # Check Gemini AI first for fluid, warm, human conversation
