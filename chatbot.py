@@ -3,6 +3,8 @@ import re
 import json
 import random
 import tempfile
+import asyncio
+from typing import Optional
 import httpx
 from datetime import datetime
 from dotenv import load_dotenv
@@ -11,17 +13,28 @@ from menu import RESTAURANT_INFO, MENU, PIZZA_SIZES, PIZZA_CRUSTS
 load_dotenv(override=True)
 
 # ─────────────────────────────────────────────
-# ☁️ Persistent Cloud Storage for Serverless (Vercel)
+# ⚡ High-Speed Connection Pool & Persistent Cloud Storage
 # ─────────────────────────────────────────────
 KV_BUCKET = os.getenv("KV_BUCKET", "QA3HUmSY1Tcfnr3nCQvFN1")
+
+_http_client: Optional[httpx.AsyncClient] = None
+
+def get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(
+            timeout=3.0,
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50)
+        )
+    return _http_client
 
 async def get_kv(key: str, default=None):
     try:
         url = f"https://kvdb.io/{KV_BUCKET}/{key}"
-        async with httpx.AsyncClient(timeout=3.5) as client:
-            r = await client.get(url)
-            if r.status_code == 200:
-                return r.json()
+        client = get_http_client()
+        r = await client.get(url)
+        if r.status_code == 200:
+            return r.json()
     except Exception:
         pass
     return default
@@ -29,12 +42,12 @@ async def get_kv(key: str, default=None):
 async def set_kv(key: str, val):
     try:
         url = f"https://kvdb.io/{KV_BUCKET}/{key}"
-        async with httpx.AsyncClient(timeout=3.5) as client:
-            await client.post(url, content=json.dumps(val))
+        client = get_http_client()
+        await client.post(url, content=json.dumps(val))
     except Exception:
         pass
 
-# In-memory caches for low-latency
+# In-memory caches for 0ms ultra-low latency
 conversation_history = {}
 user_carts = {}
 welcomed_users = set()
@@ -49,7 +62,8 @@ async def get_history(phone_number: str) -> list:
 async def save_history(phone_number: str, history: list):
     trimmed = list(history[-10:])
     conversation_history[phone_number] = trimmed
-    await set_kv(f"hist_{phone_number}", trimmed)
+    # Non-blocking async background persistence
+    asyncio.create_task(set_kv(f"hist_{phone_number}", trimmed))
 
 async def get_cart(phone_number: str) -> dict:
     if phone_number in user_carts and user_carts[phone_number].get("items"):
@@ -63,7 +77,8 @@ async def get_cart(phone_number: str) -> dict:
 
 async def save_cart(phone_number: str, cart: dict):
     user_carts[phone_number] = cart
-    await set_kv(f"cart_{phone_number}", cart)
+    # Non-blocking async background persistence
+    asyncio.create_task(set_kv(f"cart_{phone_number}", cart))
 
 async def is_customer_welcomed(phone_number: str) -> bool:
     if phone_number in welcomed_users:
@@ -76,7 +91,8 @@ async def is_customer_welcomed(phone_number: str) -> bool:
 
 async def mark_customer_welcomed(phone_number: str):
     welcomed_users.add(phone_number)
-    await set_kv(f"welcomed_{phone_number}", True)
+    # Non-blocking async background persistence
+    asyncio.create_task(set_kv(f"welcomed_{phone_number}", True))
 
 def get_all_items_map():
     all_items = {}
@@ -189,31 +205,34 @@ async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_n
         }
     }
 
-    # Fast low-latency models
+    # Fast official low-latency models with strict 2.5s timeout
     models_to_try = [
-        os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite"),
-        "gemini-3.8-flash",
-        "gemini-flash-latest"
+        os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+        "gemini-2.0-flash"
     ]
 
+    client = get_http_client()
     last_err = None
     for model_name in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(url, json=payload)
-                if response.status_code == 200:
-                    data = response.json()
-                    if "candidates" in data and len(data["candidates"]) > 0:
-                        parts = data["candidates"][0].get("content", {}).get("parts", [])
-                        for p in parts:
-                            if "text" in p and not p.get("thought", False):
-                                return p["text"].strip()
-                        if parts and "text" in parts[0]:
-                            return parts[0]["text"].strip()
-                else:
-                    last_err = f"{model_name} returned {response.status_code}"
+            response = await client.post(url, json=payload, timeout=2.5)
+            if response.status_code == 200:
+                data = response.json()
+                if "candidates" in data and len(data["candidates"]) > 0:
+                    parts = data["candidates"][0].get("content", {}).get("parts", [])
+                    for p in parts:
+                        if "text" in p and not p.get("thought", False):
+                            return p["text"].strip()
+                    if parts and "text" in parts[0]:
+                        return parts[0]["text"].strip()
+            elif response.status_code in (401, 403):
+                raise ValueError("Invalid Gemini API Key")
+            else:
+                last_err = f"{model_name} status {response.status_code}"
         except Exception as e:
+            if "Invalid Gemini API Key" in str(e):
+                raise
             last_err = str(e)
 
     raise ValueError(f"Gemini API generation failed: {last_err}")
@@ -448,8 +467,11 @@ async def should_send_menu_pictures(phone_number: str, message_text: str) -> boo
     is_pure_greeting = clean in greetings
     is_explicit_menu = bool(re.search(r"\b(menu|tasweer|pictures)\b", clean))
 
-    is_welcomed = await is_customer_welcomed(phone_number)
-    return (is_pure_greeting and not is_welcomed) or is_explicit_menu
+    if is_explicit_menu:
+        return True
+    if is_pure_greeting:
+        return not (await is_customer_welcomed(phone_number))
+    return False
 
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
     should_send_menu_images = await should_send_menu_pictures(phone_number, message_text)
@@ -457,9 +479,11 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
     if should_send_menu_images:
         await mark_customer_welcomed(phone_number)
 
-    # Check Gemini AI first for fluid, warm, human conversation
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
+    # Check Gemini AI first if a valid API key is configured
+    api_key = os.getenv("GEMINI_API_KEY", "").strip()
+    is_valid_format = api_key.startswith("AIzaSy")
+
+    if is_valid_format:
         try:
             print(f"[GEMINI] Calling Gemini AI for {customer_name} (+{phone_number})...")
             history = await get_history(phone_number)

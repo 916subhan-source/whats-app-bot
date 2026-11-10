@@ -1,13 +1,7 @@
 import os
 import sys
-
-# Ensure UTF-8 output on Windows consoles
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-if hasattr(sys.stderr, "reconfigure"):
-    sys.stderr.reconfigure(encoding="utf-8")
-
 import re
+import asyncio
 from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, Request, Query, HTTPException, BackgroundTasks
@@ -37,8 +31,19 @@ if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ─────────────────────────────────────────────
-# Meta WhatsApp Cloud API Client
+# ⚡ High-Performance Reusable Connection Pool
 # ─────────────────────────────────────────────
+_wa_client: Optional[httpx.AsyncClient] = None
+
+def get_wa_client() -> httpx.AsyncClient:
+    global _wa_client
+    if _wa_client is None or _wa_client.is_closed:
+        _wa_client = httpx.AsyncClient(
+            timeout=8.0,
+            limits=httpx.Limits(max_keepalive_connections=20, max_connections=50)
+        )
+    return _wa_client
+
 async def send_whatsapp_message(to: str, text: str):
     url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
     headers = {
@@ -51,13 +56,17 @@ async def send_whatsapp_message(to: str, text: str):
         "type": "text",
         "text": {"body": text},
     }
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    client = get_wa_client()
+    try:
         response = await client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
             print(f"[ERROR] Failed to send WhatsApp message: {response.text}")
         else:
             print(f"[OK] Text message sent to {to}")
         return response.json()
+    except Exception as e:
+        print(f"[ERROR] send_whatsapp_message exception: {e}")
+        return {"error": str(e)}
 
 async def send_whatsapp_image(to: str, media_id: str = None, image_url: str = None, caption: str = None):
     url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
@@ -79,13 +88,17 @@ async def send_whatsapp_image(to: str, media_id: str = None, image_url: str = No
         "type": "image",
         "image": image_payload,
     }
-    async with httpx.AsyncClient(timeout=10.0) as client:
+    client = get_wa_client()
+    try:
         response = await client.post(url, json=payload, headers=headers)
         if response.status_code >= 400:
             print(f"[ERROR] Failed to send WhatsApp image to {to}: {response.text}")
         else:
             print(f"[OK] Image sent to {to}")
         return response.json()
+    except Exception as e:
+        print(f"[ERROR] send_whatsapp_image exception: {e}")
+        return {"error": str(e)}
 
 async def send_whatsapp_buttons(to: str, text: str, buttons: list, header: str = None, footer: str = None):
     url = f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages"
@@ -171,8 +184,8 @@ async def mark_as_read(message_id: str):
         "message_id": message_id,
     }
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(url, json=payload, headers=headers)
+        client = get_wa_client()
+        await client.post(url, json=payload, headers=headers)
     except Exception:
         pass
 
@@ -198,9 +211,9 @@ async def handle_incoming_messages(data: dict):
             from_number = message.get("from")
             msg_type = message.get("type")
 
-            # Mark message as read (blue ticks)
+            # Mark message as read in background without blocking response
             if msg_id:
-                await mark_as_read(msg_id)
+                asyncio.create_task(mark_as_read(msg_id))
 
             incoming_text = ""
             if msg_type == "text":
