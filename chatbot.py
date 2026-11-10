@@ -10,61 +10,73 @@ from menu import RESTAURANT_INFO, MENU, PIZZA_SIZES, PIZZA_CRUSTS
 
 load_dotenv(override=True)
 
-# Persistent cart file across serverless invocations
-CARTS_FILE = os.path.join(tempfile.gettempdir(), "whatsapp_food_bot_carts.json")
+# ─────────────────────────────────────────────
+# ☁️ Persistent Cloud Storage for Serverless (Vercel)
+# ─────────────────────────────────────────────
+KV_BUCKET = os.getenv("KV_BUCKET", "QA3HUmSY1Tcfnr3nCQvFN1")
 
-def load_carts() -> dict:
+async def get_kv(key: str, default=None):
     try:
-        if os.path.exists(CARTS_FILE):
-            with open(CARTS_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+        url = f"https://kvdb.io/{KV_BUCKET}/{key}"
+        async with httpx.AsyncClient(timeout=3.5) as client:
+            r = await client.get(url)
+            if r.status_code == 200:
+                return r.json()
     except Exception:
         pass
-    return {}
+    return default
 
-def save_carts(carts: dict):
+async def set_kv(key: str, val):
     try:
-        with open(CARTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(carts, f, ensure_ascii=False)
+        url = f"https://kvdb.io/{KV_BUCKET}/{key}"
+        async with httpx.AsyncClient(timeout=3.5) as client:
+            await client.post(url, content=json.dumps(val))
     except Exception:
         pass
 
-user_carts = load_carts()
+# In-memory caches for low-latency
 conversation_history = {}
+user_carts = {}
+welcomed_users = set()
 
-# Persistent welcomed customers tracker
-WELCOMED_FILE = os.path.join(tempfile.gettempdir(), "cherry_peri_welcomed.json")
+async def get_history(phone_number: str) -> list:
+    if phone_number in conversation_history and conversation_history[phone_number]:
+        return list(conversation_history[phone_number])
+    remote_hist = await get_kv(f"hist_{phone_number}", default=[])
+    conversation_history[phone_number] = remote_hist or []
+    return list(conversation_history[phone_number])
 
-def load_welcomed_users() -> set:
-    try:
-        if os.path.exists(WELCOMED_FILE):
-            with open(WELCOMED_FILE, "r", encoding="utf-8") as f:
-                return set(json.load(f))
-    except Exception:
-        pass
-    return set()
+async def save_history(phone_number: str, history: list):
+    trimmed = list(history[-10:])
+    conversation_history[phone_number] = trimmed
+    await set_kv(f"hist_{phone_number}", trimmed)
 
-def save_welcomed_users(users: set):
-    try:
-        with open(WELCOMED_FILE, "w", encoding="utf-8") as f:
-            json.dump(list(users), f)
-    except Exception:
-        pass
-
-welcomed_users = load_welcomed_users()
-
-def get_history(phone_number: str):
-    if phone_number not in conversation_history:
-        conversation_history[phone_number] = []
-    return conversation_history[phone_number]
-
-def get_cart(phone_number: str):
-    global user_carts
-    if not user_carts:
-        user_carts = load_carts()
-    if phone_number not in user_carts:
+async def get_cart(phone_number: str) -> dict:
+    if phone_number in user_carts and user_carts[phone_number].get("items"):
+        return user_carts[phone_number]
+    remote_cart = await get_kv(f"cart_{phone_number}")
+    if remote_cart:
+        user_carts[phone_number] = remote_cart
+    else:
         user_carts[phone_number] = {"items": [], "address": None, "awaiting_address": False}
     return user_carts[phone_number]
+
+async def save_cart(phone_number: str, cart: dict):
+    user_carts[phone_number] = cart
+    await set_kv(f"cart_{phone_number}", cart)
+
+async def is_customer_welcomed(phone_number: str) -> bool:
+    if phone_number in welcomed_users:
+        return True
+    is_welcomed = await get_kv(f"welcomed_{phone_number}")
+    if is_welcomed:
+        welcomed_users.add(phone_number)
+        return True
+    return False
+
+async def mark_customer_welcomed(phone_number: str):
+    welcomed_users.add(phone_number)
+    await set_kv(f"welcomed_{phone_number}", True)
 
 def get_all_items_map():
     all_items = {}
@@ -242,42 +254,39 @@ def create_order_placement_slip(order_id: str, customer_name: str, phone_number:
 def get_human_menu_text() -> str:
     return (
         f"📋 *{RESTAURANT_INFO['name']} — Menu* 🍽️\n\n"
-        f"🍕 *Pizzas (Available in Small, Medium, Large & XL):*\n"
-        f"  • Chicken Fajita — Rs. 450 (S) | Rs. 750 (M) | Rs. 1,150 (L)\n"
-        f"  • Pepperoni Classic — Rs. 450 (S) | Rs. 750 (M) | Rs. 1,150 (L)\n"
-        f"  • BBQ Smoky Chicken — Rs. 500 (S) | Rs. 800 (M) | Rs. 1,200 (L)\n"
-        f"  • Cheese Margherita — Rs. 400 (S) | Rs. 650 (M) | Rs. 1,000 (L)\n"
-        f"  • Veggie Supreme — Rs. 400 (S) | Rs. 650 (M) | Rs. 1,000 (L)\n"
-        f"  _(Crust Options: Cheese Stuffed +Rs. 150, Kabab Crown +Rs. 200)_\n\n"
-        f"🍗 *Grill & Charcoal BBQ:*\n"
-        f"  • Chicken Tikka (Leg/Breast) — *Rs. 450*\n"
-        f"  • Chicken Malai Boti (8 Pcs) — *Rs. 650*\n"
-        f"  • Beef Seekh Kabab (4 Pcs) — *Rs. 550*\n"
-        f"  • Grilled Fish Fillet — *Rs. 850*\n\n"
-        f"🍔 *Burgers:*\n"
-        f"  • Classic Beef Burger — *Rs. 350*\n"
-        f"  • Chicken Zinger Burger — *Rs. 400*\n"
-        f"  • Double Cheese Burger — *Rs. 500*\n"
-        f"  • Veggie Burger — *Rs. 300*\n\n"
-        f"🍟 *Sides:*\n"
-        f"  • French Fries — *Rs. 150*\n"
-        f"  • Chicken Nuggets (6pc) — *Rs. 250*\n"
-        f"  • Garlic Bread (4pc) — *Rs. 200*\n"
-        f"  • Fresh Coleslaw — *Rs. 100*\n\n"
-        f"🥤 *Drinks & Shakes:*\n"
-        f"  • Coca Cola (500ml) — *Rs. 80*\n"
-        f"  • Fresh Mint Lemonade — *Rs. 140*\n"
-        f"  • Mango Shake (Thick) — *Rs. 200*\n"
-        f"  • Mineral Water — *Rs. 50*\n\n"
-        f"🛵 *Delivery:* Rs. 50 (Pure DI Khan mein 30-45 mins delivery!)\n"
+        f"🌟 *Special Deals:*\n"
+        f"  • *Student Viral Deal* — *Rs. 899*\n"
+        f"    (1x 6\" Personal Pizza + 1x Classic Zinger + Fries + 345ml Drink)\n"
+        f"  • *Family Viral King Deal* — *Rs. 2,499*\n"
+        f"    (1x Medium Pizza + Half Broast 4pcs + Large Fries + 1.5L Drink)\n\n"
+        f"🍕 *Pizzas (Personal, Medium, Large, XL):*\n"
+        f"  • Regular (Tandoori, Fajita, Tikka, BBQ, Hot & Spicy)\n"
+        f"    Rs. 500 (6\") | Rs. 800 (9\") | Rs. 1,400 (13\") | Rs. 1,900 (17\")\n"
+        f"  • Special (Cherry Peri Special, Malai Boti, Bihari Kabab)\n"
+        f"    Rs. 600 (6\") | Rs. 950 (9\") | Rs. 1,600 (13\") | Rs. 2,100 (17\")\n\n"
+        f"🍔 *Burgers & Sandwiches:*\n"
+        f"  • Classic Zinger + Fries — *Rs. 450*\n"
+        f"  • Cheese Zinger + Fries — *Rs. 500*\n"
+        f"  • Mighty Zinger + Fries — *Rs. 600*\n"
+        f"  • Chicken Grill Burger + Fries — *Rs. 550*\n"
+        f"  • Cherry Peri Special Grill + Fries — *Rs. 700*\n\n"
+        f"🍗 *Broast & Wings:*\n"
+        f"  • Quarter Broast + Fries — *Rs. 550*\n"
+        f"  • Crispy Wings (6 Pcs) — *Rs. 400*\n\n"
+        f"🌯 *Rolls & Loaded Fries:*\n"
+        f"  • Chicken Cheese Spin Roll — *Rs. 500*\n"
+        f"  • Loaded Cheese Fries — *Rs. 400 (S) / Rs. 550 (L)*\n\n"
+        f"🥤 *Drinks:*\n"
+        f"  • 345ml Cold Drink — *Rs. 100*\n"
+        f"  • 1.5 Ltr Cold Drink — *Rs. 220*\n\n"
+        f"🛵 *Delivery:* FREE in D.I. Khan (30-45 mins delivery)\n"
         f"💵 *Payment:* Cash on Delivery (COD)\n\n"
-        f"Order karne ke liye bas item ka naam likh kar send karein, jaise:\n"
-        f"👉 *1 Zinger Burger aur 1 Coke* ya *1 Medium Pepperoni Pizza* 😊"
+        f"Order karne ke liye item ka naam send karein! 😊"
     )
 
-def generate_human_fallback(phone_number: str, message_text: str, customer_name: str = "Customer"):
+async def generate_human_fallback(phone_number: str, message_text: str, customer_name: str = "Customer"):
     text = message_text.lower().strip()
-    cart = get_cart(phone_number)
+    cart = await get_cart(phone_number)
     all_items_map = get_all_items_map()
 
     # 1. Greetings ("hi", "hello", "salam", "aoa", "hey")
@@ -290,7 +299,7 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
 
     # 3. View Cart / Total Bill
     if any(k in text for k in ["cart", "bill", "mera order", "total kitna", "basket"]) and not any(k in text for k in ["clear", "cancel", "khatam"]):
-        if not cart["items"]:
+        if not cart.get("items"):
             return f"Cart khali hai. Kya order karna chahenge?"
         _, _, total = format_cart_summary(cart)
         return f"Total bill Rs. {total} hai. Delivery address send karein."
@@ -299,18 +308,18 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
     if any(k in text for k in ["clear", "cancel", "khali", "delete", "nhi chahiye", "band karo"]):
         cart["items"] = []
         cart["awaiting_address"] = False
-        save_carts(user_carts)
+        await save_cart(phone_number, cart)
         return f"Theek hai, aapka order cancel kar diya gaya."
 
     # 5. Location / Timings / Payments
     if any(k in text for k in ["location", "kahan", "address kahan", "kidhar", "kider"]):
-        return "Circular Road, D.I. Khan par hamara kitchen hai."
+        return "Opposite Stylo Shopping Center, Circular Road, D.I. Khan par hamara restaurant hai."
 
     if any(k in text for k in ["timing", "time", "kab tak", "open", "khula", "band"]):
         return "Rozana dopehar 12:00 se raat 1:00 tak open hain."
 
     if any(k in text for k in ["payment", "pesay", "paise", "easypaisa", "jazzcash", "card"]):
-        return "Cash on Delivery aur JazzCash dono accept karte hain."
+        return "Cash on Delivery aur Easypaisa dono accept karte hain."
 
     # 6. Address Provided -> Beautiful Official Order Slip Confirmation
     ADDRESS_KEYWORDS = [
@@ -322,7 +331,7 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
     is_address_text = any(k in text for k in ADDRESS_KEYWORDS) or len(text.split()) >= 2
     is_waiting = cart.get("awaiting_address", False)
 
-    if cart["items"] and (is_waiting or is_address_text):
+    if cart.get("items") and (is_waiting or is_address_text):
         cart["address"] = message_text
         cart["awaiting_address"] = False
         order_id = f"#FE-{random.randint(1000, 9999)}"
@@ -338,12 +347,12 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
             "address": message_text,
             "items_list": items_list,
             "subtotal": subtotal,
-            "delivery_fee": RESTAURANT_INFO["deliveryFee"],
+            "delivery_fee": 0,
             "total": total,
         }
 
         cart["items"] = []  # Reset cart after order placed
-        save_carts(user_carts)
+        await save_cart(phone_number, cart)
 
         return {
             "text": slip_text,
@@ -353,49 +362,38 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
 
     # 7. Food Items Ordering / Parsing
     ITEM_KEYWORDS = [
-        {"id": "b2", "keywords": ["zinger", "chicken burger"], "default_name": "Chicken Zinger Burger", "price": 400},
-        {"id": "b1", "keywords": ["classic beef", "beef burger", "beef"], "default_name": "Classic Beef Burger", "price": 350},
-        {"id": "b3", "keywords": ["double cheese", "cheese burger"], "default_name": "Double Cheese Burger", "price": 500},
-        {"id": "b4", "keywords": ["veggie burger"], "default_name": "Veggie Burger", "price": 300},
+        {"id": "deal1", "keywords": ["student viral", "student deal", "viral deal 1", "deal 1"], "default_name": "Student Viral Deal", "price": 899},
+        {"id": "deal2", "keywords": ["family viral", "family viral king", "family deal", "deal 2"], "default_name": "Family Viral King Deal", "price": 2499},
+        {"id": "b1", "keywords": ["classic zinger", "zinger burger", "zinger"], "default_name": "Classic Zinger + Fries", "price": 450},
+        {"id": "b2", "keywords": ["cheese zinger"], "default_name": "Cheese Zinger + Fries", "price": 500},
+        {"id": "b3", "keywords": ["mighty zinger"], "default_name": "Mighty Zinger + Fries", "price": 600},
+        {"id": "b4", "keywords": ["chicken grill", "grill burger"], "default_name": "Chicken Grill Burger + Fries", "price": 550},
+        {"id": "b5", "keywords": ["cherry peri special grill", "special grill burger"], "default_name": "Cherry Peri Special Grill + Fries", "price": 700},
+        {"id": "br1", "keywords": ["quarter broast", "broast"], "default_name": "Quarter Broast + Fries (2 Pcs)", "price": 550},
+        {"id": "w1", "keywords": ["crispy wings", "wings"], "default_name": "Crispy Wings (6 Pcs)", "price": 400},
+        {"id": "r1", "keywords": ["spin roll", "chicken cheese spin roll"], "default_name": "Chicken Cheese Spin Roll", "price": 500},
+        {"id": "lf1", "keywords": ["loaded fries", "loaded cheese fries"], "default_name": "Loaded Cheese Fries", "price": 400},
+        {"id": "f1", "keywords": ["plain fries", "fries"], "default_name": "Plain Fries", "price": 250},
+        {"id": "d1", "keywords": ["coke", "coca cola", "cold drink", "drink", "pepsi"], "default_name": "Cold Drink (345ml)", "price": 100},
+        {"id": "d2", "keywords": ["1.5 ltr", "badi bottle", "1.5 liter"], "default_name": "Cold Drink (1.5 Ltr)", "price": 220},
         {"id": "p1", "keywords": ["fajita", "chicken fajita"], "is_pizza": True, "base_name": "Chicken Fajita Pizza"},
-        {"id": "p2", "keywords": ["pepperoni"], "is_pizza": True, "base_name": "Pepperoni Classic Pizza"},
-        {"id": "p3", "keywords": ["bbq chicken", "bbq pizza", "bbq"], "is_pizza": True, "base_name": "BBQ Smoky Chicken Pizza"},
-        {"id": "p4", "keywords": ["margherita", "cheese pizza"], "is_pizza": True, "base_name": "Cheese Margherita Pizza"},
-        {"id": "p5", "keywords": ["veggie supreme", "veggie pizza"], "is_pizza": True, "base_name": "Veggie Supreme Pizza"},
-        {"id": "g1", "keywords": ["tikka", "chicken tikka"], "default_name": "Chicken Tikka (Quarter)", "price": 450},
-        {"id": "g2", "keywords": ["malai boti", "malai"], "default_name": "Chicken Malai Boti (8 Pcs)", "price": 650},
-        {"id": "g3", "keywords": ["seekh kabab", "kabab"], "default_name": "Beef Seekh Kabab (4 Pcs)", "price": 550},
-        {"id": "g4", "keywords": ["fish", "grilled fish"], "default_name": "Grilled Fish Fillet", "price": 850},
-        {"id": "s1", "keywords": ["fries", "finger chips", "french fries"], "default_name": "French Fries", "price": 150},
-        {"id": "s2", "keywords": ["nuggets", "chicken nuggets"], "default_name": "Chicken Nuggets (6pc)", "price": 250},
-        {"id": "s3", "keywords": ["garlic bread"], "default_name": "Garlic Bread (4pc)", "price": 200},
-        {"id": "s4", "keywords": ["coleslaw"], "default_name": "Fresh Coleslaw", "price": 100},
-        {"id": "d1", "keywords": ["coke", "coca cola", "cola", "cold drink"], "default_name": "Coca Cola (500ml)", "price": 80},
-        {"id": "d2", "keywords": ["mint lemonade", "lemonade", "fresh lime"], "default_name": "Fresh Mint Lemonade", "price": 140},
-        {"id": "d3", "keywords": ["mango shake", "shake"], "default_name": "Mango Shake (Special)", "price": 200},
-        {"id": "d4", "keywords": ["water", "water bottle", "paani"], "default_name": "Mineral Water (500ml)", "price": 50},
+        {"id": "p2", "keywords": ["tikka", "chicken tikka pizza"], "is_pizza": True, "base_name": "Chicken Tikka Pizza"},
+        {"id": "p3", "keywords": ["tandoori", "tandoori pizza"], "is_pizza": True, "base_name": "Tandoori Pizza"},
+        {"id": "p4", "keywords": ["cherry peri special pizza", "special pizza"], "is_pizza": True, "base_name": "Cherry Peri Special Pizza"},
+        {"id": "p5", "keywords": ["malai boti pizza"], "is_pizza": True, "base_name": "Malai Boti Pizza"},
     ]
 
     size_selected = "medium"
     size_label = "Medium"
-    if any(s in text for s in ["small", "chota", "choti", "7 inch", "7\""]):
-        size_selected = "small"
-        size_label = "Small"
+    if any(s in text for s in ["personal", "small", "chota", "choti", "6 inch", "6\""]):
+        size_selected = "personal"
+        size_label = "Personal (6\")"
     elif any(s in text for s in ["large", "bada", "badi", "13 inch", "13\""]):
         size_selected = "large"
-        size_label = "Large"
-    elif any(s in text for s in ["xl", "xlarge", "extra large", "16 inch", "16\""]):
+        size_label = "Large (13\")"
+    elif any(s in text for s in ["xl", "xlarge", "extra large", "17 inch", "17\""]):
         size_selected = "xlarge"
-        size_label = "X-Large"
-
-    crust_extra = 0
-    crust_label = ""
-    if any(c in text for c in ["cheese stuffed", "cheese crust", "stuffed crust", "cheese bhari"]):
-        crust_extra = 150
-        crust_label = " - Cheese Stuffed"
-    elif any(c in text for c in ["crown", "kabab crown", "kabab crust"]):
-        crust_extra = 200
-        crust_label = " - Kabab Crown"
+        size_label = "XL Family (17\")"
 
     found_items = []
     for entry in ITEM_KEYWORDS:
@@ -413,10 +411,9 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
 
             if entry.get("is_pizza"):
                 p_item = all_items_map.get(entry["id"], {})
-                base_price = p_item.get("prices", {}).get(size_selected, 750)
-                item_price = base_price + crust_extra
-                item_name = f"{entry['base_name']} ({size_label}{crust_label})"
-                found_items.append({"id": f"{entry['id']}_{size_selected}", "name": item_name, "price": item_price, "quantity": qty})
+                base_price = p_item.get("prices", {}).get(size_selected, 800)
+                item_name = f"{entry['base_name']} ({size_label})"
+                found_items.append({"id": f"{entry['id']}_{size_selected}", "name": item_name, "price": base_price, "quantity": qty})
             else:
                 found_items.append({"id": entry["id"], "name": entry["default_name"], "price": entry["price"], "quantity": qty})
 
@@ -429,15 +426,13 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
                 cart["items"].append(f_item)
 
         cart["awaiting_address"] = True
-        save_carts(user_carts)
-        items_list, subtotal, total = format_cart_summary(cart)
-
+        await save_cart(phone_number, cart)
         return f"Order note ho gaya! Delivery address send karein please."
 
     # 8. Friendly Natural Fallback (5 to 10 words)
     return f"Jee {customer_name}, batayein aapke liye kya bhejwain?"
 
-def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
+async def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
     clean = message_text.lower().strip()
 
     # Never send menu pictures if user is ordering food or providing delivery address
@@ -445,7 +440,8 @@ def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
         "deal", "burger", "pizza", "zinger", "broast", "wings", "fries",
         "sandwich", "pasta", "roll", "shawarma", "wrap", "coke", "drink",
         "bottle", "malai", "tikka", "fajita", "boti", "kabab", "paratha",
-        "chowk", "chuk", "chashma", "road", "street", "shop", "cantt", "house", "gali", "mohalla"
+        "chowk", "chuk", "chashma", "road", "street", "shop", "cantt", "house", "gali", "mohalla",
+        "order", "karna", "mangwana", "bhejo", "bhej do", "chahiye", "dedo", "send", "de do"
     ]
     if any(w in clean for w in food_or_order_words):
         return False
@@ -455,40 +451,39 @@ def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
     is_pure_greeting = clean in greetings
     is_explicit_menu = bool(re.search(r"\b(menu|tasweer|pictures)\b", clean))
 
-    is_new = phone_number not in welcomed_users
-    return (is_pure_greeting and is_new) or is_explicit_menu
+    is_welcomed = await is_customer_welcomed(phone_number)
+    return (is_pure_greeting and not is_welcomed) or is_explicit_menu
 
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
-    global welcomed_users
-    should_send_menu_images = should_send_menu_pictures(phone_number, message_text)
+    should_send_menu_images = await should_send_menu_pictures(phone_number, message_text)
 
     if should_send_menu_images:
-        welcomed_users.add(phone_number)
-        save_welcomed_users(welcomed_users)
+        await mark_customer_welcomed(phone_number)
 
     # Check Gemini AI first for fluid, warm, human conversation
     api_key = os.getenv("GEMINI_API_KEY")
     if api_key:
         try:
             print(f"[GEMINI] Calling Gemini AI for {customer_name} (+{phone_number})...")
-            history = get_history(phone_number)
+            history = await get_history(phone_number)
             history.append({
                 "role": "user",
                 "parts": [{"text": message_text}]
             })
-            recent_history = history[-6:]
+            recent_history = history[-10:]
             ai_reply = await call_gemini_ai(recent_history, api_key, customer_name, phone_number)
             history.append({
                 "role": "model",
                 "parts": [{"text": ai_reply}]
             })
+            await save_history(phone_number, history)
             print(f"[GEMINI OK] Reply generated: \"{ai_reply[:60]}...\"")
 
             # Check if order was confirmed with final slip
             has_slip = "#fe-" in ai_reply.lower() or ("confirmed" in ai_reply.lower() and "total bill" in ai_reply.lower())
 
             if has_slip:
-                cart = get_cart(phone_number)
+                cart = await get_cart(phone_number)
                 order_id = f"#FE-{random.randint(1000, 9999)}"
                 items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items discussed in chat", 0, "COD")
                 order_details = {
@@ -503,7 +498,8 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 }
                 cart["items"] = []
                 cart["awaiting_address"] = False
-                save_carts(user_carts)
+                await save_cart(phone_number, cart)
+                await save_history(phone_number, [])
                 return {
                     "text": ai_reply,
                     "order_confirmed": True,
@@ -519,8 +515,11 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
             print(f"[GEMINI ERROR] {e}")
 
     print("[FALLBACK] Using local human fallback engine...")
-    fallback_text = generate_human_fallback(phone_number, message_text, customer_name)
+    fallback_res = await generate_human_fallback(phone_number, message_text, customer_name)
+    if isinstance(fallback_res, dict):
+        fallback_res["send_menu_images"] = should_send_menu_images
+        return fallback_res
     return {
-        "text": fallback_text,
+        "text": fallback_res,
         "send_menu_images": should_send_menu_images
     }
