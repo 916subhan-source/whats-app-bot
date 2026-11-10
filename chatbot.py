@@ -477,12 +477,25 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
             print(f"[GEMINI OK] Reply generated: \"{ai_reply[:60]}...\"")
 
             # Check if order was confirmed with final slip
-            has_slip = "#fe-" in ai_reply.lower() or ("confirmed" in ai_reply.lower() and "total bill" in ai_reply.lower())
+            has_slip = (
+                "#fe-" in ai_reply.lower()
+                or "order #" in ai_reply.lower()
+                or ("confirmed" in ai_reply.lower() and ("total" in ai_reply.lower() or "bill" in ai_reply.lower() or "slip" in ai_reply.lower()))
+                or ("receipt" in ai_reply.lower() and "rs." in ai_reply.lower())
+            )
 
             if has_slip:
                 cart = await get_cart(phone_number)
                 order_id = f"#FE-{random.randint(1000, 9999)}"
-                items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items discussed in chat", 0, "COD")
+                id_match = re.search(r"#fe-\d{4}", ai_reply, re.IGNORECASE)
+                if id_match:
+                    order_id = id_match.group(0).upper()
+
+                items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items in order receipt", 0, "COD")
+                total_match = re.search(r"total bill[:\s\*]+rs\.?\s*([\d,]+)", ai_reply, re.IGNORECASE)
+                if total_match:
+                    total = total_match.group(1).replace(",", "")
+
                 order_details = {
                     "order_id": order_id,
                     "customer_name": customer_name,

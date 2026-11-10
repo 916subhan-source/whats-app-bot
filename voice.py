@@ -165,3 +165,4 @@ async def transcribe_whatsapp_voice(media_id: str, mime_type: str = "audio/ogg")
 
     print("[VOICE] No speech-to-text API configured or succeeded.")
     return None
+

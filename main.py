@@ -7,6 +7,8 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+import re
+from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, Request, Query, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
@@ -14,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 import httpx
 from dotenv import load_dotenv
 
-from chatbot import process_message
+from chatbot import process_message, get_kv, set_kv
 from menu import MENU_PAGES
 from voice import transcribe_whatsapp_voice
 
@@ -256,33 +258,105 @@ async def handle_incoming_messages(data: dict):
             await send_whatsapp_message(from_number, text_to_send)
 
             # ─────────────────────────────────────────────
-            # 🚨 Instant Kitchen / Owner Notification
+            # 🚨 Instant Kitchen / Owner Notification & Live Orders Log
             # ─────────────────────────────────────────────
             if isinstance(reply, dict) and reply.get("order_confirmed"):
-                owner_phone = os.getenv("OWNER_PHONE_NUMBER", "923160998053")
-                if owner_phone:
-                    clean_owner = owner_phone.replace("+", "").replace(" ", "").replace("-", "").strip()
-                    if clean_owner.startswith("0"):
-                        clean_owner = "92" + clean_owner[1:]
-                    details = reply.get("order_details", {})
-                    order_slip = reply.get("text", "")
-                    kitchen_alert = (
-                        f"🚨 *NEW ORDER RECEIVED IN KITCHEN!* 🍕🍗\n\n"
-                        f"{order_slip}\n\n"
-                        f"🛵 Khana foran ready karein taake rider rawana ho sake!"
-                    )
+                details = reply.get("order_details", {})
+                order_slip = reply.get("text", "")
+
+                # 1. Save to persistent KV live kitchen orders log
+                try:
+                    recent_orders = await get_kv("kitchen_recent_orders", default=[])
+                    new_entry = {
+                        "order_id": details.get("order_id", "Order"),
+                        "timestamp": datetime.now().strftime("%d %b %Y, %I:%M %p"),
+                        "customer_name": details.get("customer_name", customer_name),
+                        "customer_phone": details.get("customer_phone", from_number),
+                        "address": details.get("address", "See slip"),
+                        "items_list": details.get("items_list", ""),
+                        "subtotal": details.get("subtotal", 0),
+                        "total": details.get("total", 0),
+                        "slip": order_slip
+                    }
+                    recent_orders.insert(0, new_entry)
+                    await set_kv("kitchen_recent_orders", recent_orders[:50])
+                    print(f"[KITCHEN LOG] Order {new_entry['order_id']} saved to live kitchen dashboard!")
+                except Exception as log_err:
+                    print(f"[KITCHEN LOG ERROR] {log_err}")
+
+                # 2. Dispatch WhatsApp notification to configured owner numbers
+                owner_phones_raw = os.getenv("OWNER_PHONE_NUMBER", "923160998053,923325255879")
+                owner_numbers = [p.strip() for p in re.split(r"[,;]+", owner_phones_raw) if p.strip()]
+
+                kitchen_alert = (
+                    f"🚨 *NEW ORDER RECEIVED IN KITCHEN!* 🍕🍗\n\n"
+                    f"{order_slip}\n\n"
+                    f"🛵 Khana foran ready karein taake rider rawana ho sake!"
+                )
+
+                for raw_phone in owner_numbers:
+                    clean_target = raw_phone.replace("+", "").replace(" ", "").replace("-", "").strip()
+                    if clean_target.startswith("0"):
+                        clean_target = "92" + clean_target[1:]
+
                     try:
-                        print(f"[KITCHEN ALERT] Dispatching notification for order {details.get('order_id')} to owner {clean_owner}...")
-                        await send_whatsapp_message(to=clean_owner, text=kitchen_alert)
-                        print(f"[KITCHEN ALERT] Notification sent successfully to {clean_owner}!")
+                        print(f"[KITCHEN ALERT] Sending alert for {details.get('order_id')} to {clean_target}...")
+                        res = await send_whatsapp_message(to=clean_target, text=kitchen_alert)
+                        if isinstance(res, dict) and "error" in res:
+                            err_info = res["error"]
+                            print(f"[KITCHEN ALERT FAILED] Error {err_info.get('code')} to {clean_target}: {err_info.get('message')}")
+                        else:
+                            print(f"[KITCHEN ALERT OK] Alert successfully sent to {clean_target}!")
                     except Exception as alert_err:
-                        print(f"[KITCHEN ALERT ERROR] Failed to send owner alert: {alert_err}")
+                        print(f"[KITCHEN ALERT ERROR] Failed sending to {clean_target}: {alert_err}")
     except Exception as e:
         print(f"[ERROR] Error handling messages: {e}")
 
 # ─────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────
+@app.get("/orders", response_class=HTMLResponse, summary="Live Kitchen Orders Dashboard")
+async def kitchen_orders_dashboard():
+    orders = await get_kv("kitchen_recent_orders", default=[])
+    rows_html = ""
+    for o in orders:
+        rows_html += f"""
+        <div style="background: #1e293b; border-radius: 12px; padding: 18px; margin-bottom: 16px; border-left: 5px solid #22c55e; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="font-weight: 800; font-size: 1.15rem; color: #38bdf8;">{o.get('order_id')}</span>
+                <span style="color: #94a3b8; font-size: 0.85rem;">🕒 {o.get('timestamp')}</span>
+            </div>
+            <div style="color: #e2e8f0; margin-bottom: 6px; font-size: 0.95rem;"><strong>👤 Customer:</strong> {o.get('customer_name')} &nbsp;|&nbsp; <strong>📞 Phone:</strong> <a href="tel:{o.get('customer_phone')}" style="color: #38bdf8;">{o.get('customer_phone')}</a></div>
+            <div style="color: #e2e8f0; margin-bottom: 10px; font-size: 0.95rem;"><strong>📍 Delivery Address:</strong> {o.get('address')}</div>
+            <div style="background: #0f172a; padding: 12px; border-radius: 8px; color: #e2e8f0; font-family: -apple-system, sans-serif; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin-bottom: 10px; border: 1px solid #334155;">{o.get('slip')}</div>
+            <div style="color: #22c55e; font-weight: bold; font-size: 1.1rem;">💵 Total Bill: Rs. {o.get('total')} (Cash on Delivery)</div>
+        </div>
+        """
+    if not rows_html:
+        rows_html = "<div style='color: #94a3b8; text-align: center; padding: 60px; font-size: 1.1rem;'>No orders placed yet. Orders will appear here live!</div>"
+
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Cherry Peri — Live Kitchen Orders</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="refresh" content="10">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b1120; color: #f8fafc; margin: 0; padding: 20px; }}
+        .container {{ max-width: 720px; margin: 0 auto; }}
+        h1 {{ display: flex; align-items: center; justify-content: space-between; font-size: 1.4rem; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 20px; }}
+        .badge {{ background: #22c55e; color: #022c22; font-size: 0.8rem; padding: 4px 10px; border-radius: 20px; font-weight: 700; letter-spacing: 0.5px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🍕 Cherry Peri Kitchen Orders <span class="badge">● Live Auto-Refresh (10s)</span></h1>
+        {rows_html}
+    </div>
+</body>
+</html>"""
+    return html
+
 @app.get("/", summary="Health Check")
 async def health_check():
     owner = os.getenv("OWNER_PHONE_NUMBER", "923160998053")
