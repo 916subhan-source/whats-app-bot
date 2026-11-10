@@ -437,11 +437,30 @@ def generate_human_fallback(phone_number: str, message_text: str, customer_name:
     # 8. Friendly Natural Fallback (5 to 10 words)
     return f"Jee {customer_name}, batayein aapke liye kya bhejwain?"
 
+def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
+    clean = message_text.lower().strip()
+
+    # Never send menu pictures if user is ordering food or providing delivery address
+    food_or_order_words = [
+        "deal", "burger", "pizza", "zinger", "broast", "wings", "fries",
+        "sandwich", "pasta", "roll", "shawarma", "wrap", "coke", "drink",
+        "bottle", "malai", "tikka", "fajita", "boti", "kabab", "paratha",
+        "chowk", "chuk", "chashma", "road", "street", "shop", "cantt", "house", "gali", "mohalla"
+    ]
+    if any(w in clean for w in food_or_order_words):
+        return False
+
+    # Check for initial greetings or explicit menu commands
+    greetings = ["hi", "hello", "salam", "assalam o alaikum", "aoa", "hey", "start"]
+    is_pure_greeting = clean in greetings
+    is_explicit_menu = bool(re.search(r"\b(menu|tasweer|pictures)\b", clean))
+
+    is_new = phone_number not in welcomed_users
+    return (is_pure_greeting and is_new) or is_explicit_menu
+
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
     global welcomed_users
-    is_first_time = phone_number not in welcomed_users
-    is_menu_request = any(k in message_text.lower() for k in ["menu", "list", "rates", "card", "tasweer", "pictures", "deals", "deal", "price"])
-    should_send_menu_images = is_first_time or is_menu_request
+    should_send_menu_images = should_send_menu_pictures(phone_number, message_text)
 
     if should_send_menu_images:
         welcomed_users.add(phone_number)
