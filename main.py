@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 from chatbot import process_message
 from menu import MENU_PAGES
+from voice import transcribe_whatsapp_voice
 
 load_dotenv(override=True)
 
@@ -209,11 +210,24 @@ async def handle_incoming_messages(data: dict):
                     incoming_text = interactive.get("button_reply", {}).get("id", "")
                 elif itype == "list_reply":
                     incoming_text = interactive.get("list_reply", {}).get("id", "")
+            elif msg_type == "audio":
+                audio_obj = message.get("audio", {})
+                media_id = audio_obj.get("id")
+                mime_type = audio_obj.get("mime_type", "audio/ogg")
+                print(f"[AUDIO] Voice message received from {customer_name} ({from_number}) [Media ID: {media_id}]")
+                incoming_text = await transcribe_whatsapp_voice(media_id, mime_type)
+                if not incoming_text or not incoming_text.strip():
+                    await send_whatsapp_message(
+                        from_number,
+                        f"Assalam-o-Alaikum {customer_name}! Aapka voice message theek se sunai nahi diya. Please dobara voice bhejein ya likh kar bata dein."
+                    )
+                    continue
+                print(f"[VOICE CONVERTED] Text: \"{incoming_text}\"")
             else:
                 # Fallback for voice/images/stickers
                 await send_whatsapp_message(
                     from_number,
-                    f"Assalam-o-Alaikum {customer_name}! 😊 Please type your food order or write *menu* to see our dishes."
+                    f"Assalam-o-Alaikum {customer_name}! 😊 Please type your food order or send a voice message, ya *menu* likhein."
                 )
                 continue
 
