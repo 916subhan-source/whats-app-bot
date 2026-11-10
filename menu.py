@@ -88,19 +88,19 @@ MENU = {
     },
     "deals": {
         "emoji": "🌟",
-        "name": "Special Viral Deals",
+        "name": "Special Viral Deals (Fixed Sizes & Items — No Choice Needed)",
         "items": [
             {
                 "id": "d1",
-                "name": "Deal 1 — Student Viral",
+                "name": "Deal 1 — Student Viral (Fixed: 6\" Personal Pizza + Classic Zinger + Fries + 345ml Drink)",
                 "price": 899,
-                "desc": "1x 6\" Personal Pizza + 1x Classic Zinger with Fries + 1x 345ml Drink"
+                "desc": "Complete deal from menu card. Pizza size is fixed to 6\" Personal, Burger is Classic Zinger, Drink is 345ml. Never ask customer about pizza size or meal options for this deal."
             },
             {
                 "id": "d2",
-                "name": "Deal 2 — Family Viral King",
+                "name": "Deal 2 — Family Viral King (Fixed: 9\" Medium Pizza + Half Broast 4 Pcs + Large Flavour Fries + 1.5Ltr Drink)",
                 "price": 2499,
-                "desc": "1x 9\" Medium Pizza + Half Broast (4 Pcs) + 1x Large Flavour Fries + 1x 1.5Ltr Drink"
+                "desc": "Complete deal from menu card. Pizza size is fixed to 9\" Medium, Broast is Half (4 Pcs), Fries are Large Flavour, Drink is 1.5Ltr. Never ask customer about pizza size or meal options for this deal."
             }
         ]
     },
