@@ -337,14 +337,156 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     if any(k in text for k in ["payment", "pesay", "paise", "easypaisa", "jazzcash", "card"]):
         return "Cash on Delivery aur Easypaisa dono accept karte hain."
 
-    # 6. Address Provided -> Beautiful Official Order Slip Confirmation
+    # 6. Parse Food Items (Pizzas, Burgers, Deals, Rolls, Broast, Fries, Drinks)
+    found_items = []
+
+    # Size detection for Pizzas & Fries
+    size_selected = "medium"
+    size_label = "Medium (9\")"
+    if any(s in text for s in ["extra large", "xl", "xlarge", "x-large", "17 inch", "17\"", "family"]):
+        size_selected = "xlarge"
+        size_label = "XL Family (17\")"
+    elif any(s in text for s in ["large", "bada", "badi", "13 inch", "13\""]):
+        size_selected = "large"
+        size_label = "Large (13\")"
+    elif any(s in text for s in ["personal", "small", "chota", "choti", "6 inch", "6\""]):
+        size_selected = "personal"
+        size_label = "Personal (6\")"
+
+    # A. Pizza Flavors
+    PIZZA_CATALOG = [
+        {"id": "sp_malaiboti", "name": "Malai Boti Pizza", "keywords": ["malai boti", "malai botti", "malaiboti", "malai botey", "malai"], "default_price": 950},
+        {"id": "sp_cherryperi", "name": "Cherry Peri Special Pizza", "keywords": ["cherry peri special", "cherry peri pizza", "special pizza"], "default_price": 950},
+        {"id": "sp_biharikabab", "name": "Bihari Kabab Pizza", "keywords": ["bihari kabab", "bihari"], "default_price": 950},
+        {"id": "sp_mughlai", "name": "Mughlai Pizza", "keywords": ["mughlai", "mughlay"], "default_price": 950},
+        {"id": "sp_supersupreme", "name": "Super Supreme Pizza", "keywords": ["super supreme", "supreme pizza"], "default_price": 950},
+        {"id": "p_fajita", "name": "Chicken Fajita Pizza", "keywords": ["fajita", "fajitha"], "default_price": 800},
+        {"id": "p_chickentikka", "name": "Chicken Tikka Pizza", "keywords": ["tikka", "chicken tikka"], "default_price": 800},
+        {"id": "p_tandoori", "name": "Tandoori Pizza", "keywords": ["tandoori", "tandori"], "default_price": 800},
+        {"id": "p_hotnspicy", "name": "Hot N Spicy Pizza", "keywords": ["hot n spicy", "hot spicy", "hot and spicy"], "default_price": 800},
+        {"id": "p_supreme", "name": "Supreme Pizza", "keywords": ["supreme"], "default_price": 800},
+        {"id": "p_cheeselover", "name": "Cheese Lover Pizza", "keywords": ["cheese lover"], "default_price": 800},
+        {"id": "p_bbq", "name": "BBQ Pizza", "keywords": ["bbq", "barbeque", "bar b q"], "default_price": 800},
+        {"id": "pp_crown", "name": "Peri Crown Crust Pizza", "keywords": ["peri crown", "crown crust", "crown pizza", "crown"], "default_price": 1100},
+        {"id": "pp_cheesestuff", "name": "Cheese Stuffer Pizza", "keywords": ["cheese stuffer", "cheese stuffed"], "default_price": 1150},
+        {"id": "pp_chickenstuff", "name": "Cheese Chicken Stuffer Pizza", "keywords": ["chicken stuffer", "cheese chicken stuffer"], "default_price": 1200},
+        {"id": "pp_kababstuff", "name": "Kabab Stuffer Pizza", "keywords": ["kabab stuffer", "kabab stuffed"], "default_price": 1200},
+    ]
+
+    for p_def in PIZZA_CATALOG:
+        if any(kw in text for kw in p_def["keywords"]):
+            qty = 1
+            pattern = r"(\d+)\s*(?:x\s*)?(?:" + "|".join(re.escape(k) for k in p_def["keywords"]) + ")"
+            m = re.search(pattern, text)
+            if m:
+                qty = int(m.group(1))
+            elif any(w in text for w in ["do ", "2 ", " 2", "two "]):
+                qty = 2
+            elif any(w in text for w in ["teen ", "3 ", " 3", "three "]):
+                qty = 3
+            elif any(w in text for w in ["char ", "4 ", " 4", "four "]):
+                qty = 4
+
+            item_info = all_items_map.get(p_def["id"], {})
+            prices = item_info.get("prices", {})
+            price = prices.get(size_selected, p_def["default_price"])
+            item_name = f"{p_def['name']} ({size_label})"
+            found_items.append({"id": f"{p_def['id']}_{size_selected}", "name": item_name, "price": price, "quantity": qty})
+            break
+
+    # B. Non-Pizza Items (Burgers, Deals, Broast, Rolls, Fries, Drinks)
+    OTHER_ITEMS = [
+        {"id": "d1", "keywords": ["student viral", "student deal", "viral deal 1", "deal 1", "viral deal"], "name": "Deal 1 — Student Viral (6\" Pizza + Zinger + Fries + Drink)", "price": 899},
+        {"id": "d2", "keywords": ["family viral", "family viral king", "family deal", "deal 2"], "name": "Deal 2 — Family Viral King (9\" Pizza + 4pc Broast + Large Fries + 1.5L Drink)", "price": 2499},
+        {"id": "b_zinger_classic", "keywords": ["classic zinger", "zinger burger", "zinger", "chiken zinger", "chicken zinger"], "name": "Classic Zinger + Fries", "price": 450},
+        {"id": "b_zinger_cheese", "keywords": ["cheese zinger", "zinger cheese"], "name": "Cheese Zinger + Fries", "price": 500},
+        {"id": "b_zinger_mighty", "keywords": ["mighty zinger", "mighty"], "name": "Mighty Zinger + Fries", "price": 600},
+        {"id": "b_grill", "keywords": ["chicken grill burger", "grill burger", "chicken grill"], "name": "Chicken Grill Burger + Fries", "price": 550},
+        {"id": "b_grill_special", "keywords": ["cherry peri special grill", "special grill burger", "special grill"], "name": "Cherry Peri Special Grill + Fries", "price": 700},
+        {"id": "b_afghani", "keywords": ["afghani burger", "afghani"], "name": "Afghani Burger", "price": 350},
+        {"id": "b_zinger_simple", "keywords": ["simple zinger", "zinger 250"], "name": "Zinger Burger", "price": 250},
+        {"id": "br_quarter", "keywords": ["quarter broast", "broast"], "name": "Quarter Broast + Fries (2 Pcs)", "price": 550},
+        {"id": "br_half", "keywords": ["half broast"], "name": "Half Broast + Fries (4 Pcs)", "price": 990},
+        {"id": "w_crispy_6", "keywords": ["crispy wings", "wings", "hot wings"], "name": "Crispy Wings (6 Pcs)", "price": 400},
+        {"id": "roll_spin_cheese", "keywords": ["spin roll", "chicken cheese spin roll", "crunchy spin roll"], "name": "Chicken Cheese Spin Roll", "price": 500},
+        {"id": "roll_shapata", "keywords": ["shapata roll", "shapata"], "name": "Shapata Roll", "price": 400},
+        {"id": "roll_dhamaka", "keywords": ["dhamaka roll", "dhamaka"], "name": "Dhamaka Roll", "price": 500},
+        {"id": "fries_loaded_cheese", "keywords": ["loaded cheese fries", "loaded fries", "cheese fries"], "name": "Loaded Cheese Fries", "price": 400},
+        {"id": "fries_matka_pizza", "keywords": ["matka pizza fries", "matka fries"], "name": "Matka Pizza Fries", "price": 400},
+        {"id": "fries_plain", "keywords": ["plain fries", "french fries", "fries"], "name": "Plain Fries", "price": 250},
+        {"id": "drink_345", "keywords": ["coke", "coca cola", "cold drink", "drink", "pepsi", "sprite", "dew"], "name": "Cold Drink (345ml)", "price": 100},
+        {"id": "drink_1500", "keywords": ["1.5 ltr", "1.5 liter", "badi bottle", "large drink"], "name": "Cold Drink (1.5 Ltr)", "price": 220},
+    ]
+
+    for item_def in OTHER_ITEMS:
+        # Avoid duplicate drink or fries if deal already matched
+        if any(d_kw in text for d_kw in ["deal 1", "deal 2", "student viral", "family viral"]) and item_def["id"] in ["drink_345", "drink_1500", "fries_plain"]:
+            continue
+        if any(kw in text for kw in item_def["keywords"]):
+            qty = 1
+            pattern = r"(\d+)\s*(?:x\s*)?(?:" + "|".join(re.escape(k) for k in item_def["keywords"]) + ")"
+            m = re.search(pattern, text)
+            if m:
+                qty = int(m.group(1))
+            elif any(w in text for w in ["do ", "2 ", " 2", "two "]):
+                qty = 2
+            elif any(w in text for w in ["teen ", "3 ", " 3", "three "]):
+                qty = 3
+            elif any(w in text for w in ["char ", "4 ", " 4", "four "]):
+                qty = 4
+
+            found_items.append({"id": item_def["id"], "name": item_def["name"], "price": item_def["price"], "quantity": qty})
+
+    # C. Address Keywords Check
     ADDRESS_KEYWORDS = [
         "house", "street", "gali", "mohalla", "road", "near", "dikhan", "d.i. khan", "d.i.khan",
         "chowk", "chuk", "chashma", "cantt", "mor", "bazar", "bazaar", "colony", "town", "pull",
         "pul", "ada", "addah", "kareeb", "opp", "opposite", "flat", "floor", "ward", "chak",
-        "hospital", "university", "college", "stop", "market", "plaza", "gate", "darwaza", "village", "gaon"
+        "hospital", "university", "college", "stop", "market", "plaza", "gate", "darwaza", "village", "gaon", "shop"
     ]
-    is_address_text = any(k in text for k in ADDRESS_KEYWORDS) or len(text.split()) >= 2
+    has_explicit_address = any(k in text for k in ADDRESS_KEYWORDS)
+
+    # If food items found in message:
+    if found_items:
+        for f_item in found_items:
+            existing = next((i for i in cart["items"] if i["id"] == f_item["id"]), None)
+            if existing:
+                existing["quantity"] += f_item["quantity"]
+            else:
+                cart["items"].append(f_item)
+
+        items_summary = ", ".join([f"{i['quantity']}x {i['name']}" for i in cart["items"]])
+
+        # If customer ALSO sent address in the same message, generate confirmation slip immediately!
+        if has_explicit_address:
+            order_id = f"#FE-{random.randint(1000, 9999)}"
+            items_list, subtotal, total = format_cart_summary(cart)
+            slip_text = create_order_placement_slip(order_id, customer_name, phone_number, message_text, cart)
+            order_details = {
+                "order_id": order_id,
+                "customer_name": customer_name,
+                "customer_phone": format_phone_number(phone_number),
+                "address": message_text,
+                "items_list": items_list,
+                "subtotal": subtotal,
+                "delivery_fee": 0,
+                "total": total,
+            }
+            cart["items"] = []
+            cart["awaiting_address"] = False
+            await save_cart(phone_number, cart)
+            return {
+                "text": slip_text,
+                "order_confirmed": True,
+                "order_details": order_details
+            }
+
+        cart["awaiting_address"] = True
+        await save_cart(phone_number, cart)
+        return f"Order note ho gaya ({items_summary})! Delivery address send karein please."
+
+    # D. Address Provided for Existing Cart Items -> Confirm Order Slip
+    is_address_text = has_explicit_address or len(text.split()) >= 3
     is_waiting = cart.get("awaiting_address", False)
 
     if cart.get("items") and (is_waiting or is_address_text):
@@ -376,74 +518,11 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
             "order_details": order_details
         }
 
-    # 7. Food Items Ordering / Parsing
-    ITEM_KEYWORDS = [
-        {"id": "deal1", "keywords": ["student viral", "student deal", "viral deal 1", "deal 1", "student viral deal", "deal1", "viral deal"], "default_name": "Deal 1 — Student Viral (6\" Pizza + Zinger + Fries + Drink)", "price": 899},
-        {"id": "deal2", "keywords": ["family viral", "family viral king", "family deal", "viral deal 2", "deal 2", "deal2"], "default_name": "Deal 2 — Family Viral King (9\" Pizza + 4pc Broast + Large Fries + 1.5L Drink)", "price": 2499},
-        {"id": "b1", "keywords": ["classic zinger", "zinger burger", "zinger"], "default_name": "Classic Zinger + Fries", "price": 450},
-        {"id": "b2", "keywords": ["cheese zinger"], "default_name": "Cheese Zinger + Fries", "price": 500},
-        {"id": "b3", "keywords": ["mighty zinger"], "default_name": "Mighty Zinger + Fries", "price": 600},
-        {"id": "b4", "keywords": ["chicken grill", "grill burger"], "default_name": "Chicken Grill Burger + Fries", "price": 550},
-        {"id": "b5", "keywords": ["cherry peri special grill", "special grill burger"], "default_name": "Cherry Peri Special Grill + Fries", "price": 700},
-        {"id": "br1", "keywords": ["quarter broast", "broast"], "default_name": "Quarter Broast + Fries (2 Pcs)", "price": 550},
-        {"id": "w1", "keywords": ["crispy wings", "wings"], "default_name": "Crispy Wings (6 Pcs)", "price": 400},
-        {"id": "r1", "keywords": ["spin roll", "chicken cheese spin roll"], "default_name": "Chicken Cheese Spin Roll", "price": 500},
-        {"id": "lf1", "keywords": ["loaded fries", "loaded cheese fries"], "default_name": "Loaded Cheese Fries", "price": 400},
-        {"id": "f1", "keywords": ["plain fries", "fries"], "default_name": "Plain Fries", "price": 250},
-        {"id": "d1", "keywords": ["coke", "coca cola", "cold drink", "drink", "pepsi"], "default_name": "Cold Drink (345ml)", "price": 100},
-        {"id": "d2", "keywords": ["1.5 ltr", "badi bottle", "1.5 liter"], "default_name": "Cold Drink (1.5 Ltr)", "price": 220},
-        {"id": "p1", "keywords": ["fajita", "chicken fajita"], "is_pizza": True, "base_name": "Chicken Fajita Pizza"},
-        {"id": "p2", "keywords": ["tikka", "chicken tikka pizza"], "is_pizza": True, "base_name": "Chicken Tikka Pizza"},
-        {"id": "p3", "keywords": ["tandoori", "tandoori pizza"], "is_pizza": True, "base_name": "Tandoori Pizza"},
-        {"id": "p4", "keywords": ["cherry peri special pizza", "special pizza"], "is_pizza": True, "base_name": "Cherry Peri Special Pizza"},
-        {"id": "p5", "keywords": ["malai boti pizza"], "is_pizza": True, "base_name": "Malai Boti Pizza"},
-    ]
-
-    size_selected = "medium"
-    size_label = "Medium"
-    if any(s in text for s in ["personal", "small", "chota", "choti", "6 inch", "6\""]):
-        size_selected = "personal"
-        size_label = "Personal (6\")"
-    elif any(s in text for s in ["large", "bada", "badi", "13 inch", "13\""]):
-        size_selected = "large"
-        size_label = "Large (13\")"
-    elif any(s in text for s in ["xl", "xlarge", "extra large", "17 inch", "17\""]):
-        size_selected = "xlarge"
-        size_label = "XL Family (17\")"
-
-    found_items = []
-    for entry in ITEM_KEYWORDS:
-        matched = any(kw in text for kw in entry["keywords"])
-        if matched:
-            qty = 1
-            pattern = r"(\d+)\s*(?:x\s*)?(?:" + "|".join(entry["keywords"]) + ")"
-            m = re.search(pattern, text)
-            if m:
-                qty = int(m.group(1))
-            elif "do " in text or "2 " in text:
-                qty = 2
-            elif "teen " in text or "3 " in text:
-                qty = 3
-
-            if entry.get("is_pizza"):
-                p_item = all_items_map.get(entry["id"], {})
-                base_price = p_item.get("prices", {}).get(size_selected, 800)
-                item_name = f"{entry['base_name']} ({size_label})"
-                found_items.append({"id": f"{entry['id']}_{size_selected}", "name": item_name, "price": base_price, "quantity": qty})
-            else:
-                found_items.append({"id": entry["id"], "name": entry["default_name"], "price": entry["price"], "quantity": qty})
-
-    if found_items:
-        for f_item in found_items:
-            existing = next((i for i in cart["items"] if i["id"] == f_item["id"]), None)
-            if existing:
-                existing["quantity"] += f_item["quantity"]
-            else:
-                cart["items"].append(f_item)
-
-        cart["awaiting_address"] = True
-        await save_cart(phone_number, cart)
-        return f"Order note ho gaya! Delivery address send karein please."
+    # E. Helpful Clarifications for Vague Requests
+    if "pizza" in text:
+        return f"Jee {customer_name}, pizza mein kaunsa flavor (Malai Boti, Fajita, Tikka, Tandoori) aur size (Personal 6\", Medium 9\", Large 13\", XL 17\") chahiye?"
+    if "burger" in text:
+        return f"Jee {customer_name}, burger mein kaunsa chahiye? Classic Zinger (Rs. 450), Cheese Zinger (Rs. 500), Mighty Zinger (Rs. 600) ya Chicken Grill (Rs. 550)?"
 
     # 8. Friendly Natural Fallback (5 to 10 words)
     return f"Jee {customer_name}, batayein aapke liye kya bhejwain?"
