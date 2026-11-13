@@ -370,17 +370,17 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
 
     # A. Pizza Flavors
     PIZZA_CATALOG = [
-        {"id": "sp_malaiboti", "name": "Malai Boti Pizza", "keywords": ["malai boti", "malai botti", "malaiboti", "malai botey", "malai"], "default_price": 950},
-        {"id": "sp_cherryperi", "name": "Cherry Peri Special Pizza", "keywords": ["cherry peri special", "cherry peri pizza", "special pizza"], "default_price": 950},
-        {"id": "sp_biharikabab", "name": "Bihari Kabab Pizza", "keywords": ["bihari kabab", "bihari"], "default_price": 950},
-        {"id": "sp_mughlai", "name": "Mughlai Pizza", "keywords": ["mughlai", "mughlay"], "default_price": 950},
+        {"id": "sp_malaiboti", "name": "Malai Boti Pizza", "keywords": ["malai boti", "malai botti", "malaiboti", "malai botey", "malai", "malai pizza"], "default_price": 950},
+        {"id": "sp_cherryperi", "name": "Cherry Peri Special Pizza", "keywords": ["cherry peri special", "cherry peri pizza", "special pizza", "cherry peri"], "default_price": 950},
+        {"id": "sp_biharikabab", "name": "Bihari Kabab Pizza", "keywords": ["bihari kabab", "bihari", "behari"], "default_price": 950},
+        {"id": "sp_mughlai", "name": "Mughlai Pizza", "keywords": ["mughlai", "mughlay", "muglai"], "default_price": 950},
         {"id": "sp_supersupreme", "name": "Super Supreme Pizza", "keywords": ["super supreme", "supreme pizza"], "default_price": 950},
-        {"id": "p_fajita", "name": "Chicken Fajita Pizza", "keywords": ["fajita", "fajitha"], "default_price": 800},
-        {"id": "p_chickentikka", "name": "Chicken Tikka Pizza", "keywords": ["tikka", "chicken tikka"], "default_price": 800},
-        {"id": "p_tandoori", "name": "Tandoori Pizza", "keywords": ["tandoori", "tandori"], "default_price": 800},
-        {"id": "p_hotnspicy", "name": "Hot N Spicy Pizza", "keywords": ["hot n spicy", "hot spicy", "hot and spicy"], "default_price": 800},
+        {"id": "p_fajita", "name": "Chicken Fajita Pizza", "keywords": ["fajita", "fajitha", "fajeeta", "fajeta", "chicken fajita"], "default_price": 800},
+        {"id": "p_chickentikka", "name": "Chicken Tikka Pizza", "keywords": ["tikka", "tika", "chicken tikka", "chicken tika", "tikah", "teeka", "tikka pizza", "tika pizza"], "default_price": 800},
+        {"id": "p_tandoori", "name": "Tandoori Pizza", "keywords": ["tandoori", "tandori", "tanduri", "chicken tandoori"], "default_price": 800},
+        {"id": "p_hotnspicy", "name": "Hot N Spicy Pizza", "keywords": ["hot n spicy", "hot spicy", "hot and spicy", "hot spicey"], "default_price": 800},
         {"id": "p_supreme", "name": "Supreme Pizza", "keywords": ["supreme"], "default_price": 800},
-        {"id": "p_cheeselover", "name": "Cheese Lover Pizza", "keywords": ["cheese lover"], "default_price": 800},
+        {"id": "p_cheeselover", "name": "Cheese Lover Pizza", "keywords": ["cheese lover", "cheeselover"], "default_price": 800},
         {"id": "p_bbq", "name": "BBQ Pizza", "keywords": ["bbq", "barbeque", "bar b q"], "default_price": 800},
         {"id": "pp_crown", "name": "Peri Crown Crust Pizza", "keywords": ["peri crown", "crown crust", "crown pizza", "crown"], "default_price": 1100},
         {"id": "pp_cheesestuff", "name": "Cheese Stuffer Pizza", "keywords": ["cheese stuffer", "cheese stuffed"], "default_price": 1150},
@@ -470,14 +470,50 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
             cart["address"] = candidate_addr
             await save_cart(phone_number, cart)
 
+    # Food or size detection (to distinguish food/size instructions from addresses)
+    is_food_or_size = (
+        any(k in text for k in [
+            "pizza", "burger", "deal", "broast", "wings", "fries", "coke", "drink", "bottle",
+            "tikka", "tika", "teeka", "fajita", "fajitha", "fajeeta", "malai", "boti", "botti",
+            "tandoori", "tandori", "bihari", "mughlai", "supreme", "zinger", "afghani",
+            "spin roll", "roll", "shawarma", "paratha", "kabab", "stuffer", "crown"
+        ])
+        or bool(re.search(r"\b(17|13|9|6|xl|large|medium|small|personal|family)\b", text))
+    )
+
+    # If customer only sent a size (e.g. "17", "13", "large", "xl") and already has a pizza in cart:
+    is_size_specified = (
+        any(s in text for s in ["extra large", "xl", "xlarge", "large", "medium", "personal", "small", "family"])
+        or bool(re.search(r"\b(17|13|9|6)\b", text))
+    )
+    if not found_items and is_size_specified and cart.get("items"):
+        for itm in cart["items"]:
+            base_p_def = next((p for p in PIZZA_CATALOG if itm["id"].startswith(p["id"])), None)
+            if base_p_def:
+                item_info = all_items_map.get(base_p_def["id"], {})
+                prices = item_info.get("prices", {})
+                new_price = prices.get(size_selected, base_p_def["default_price"])
+                itm["id"] = f"{base_p_def['id']}_{size_selected}"
+                itm["name"] = f"{base_p_def['name']} ({size_label})"
+                itm["price"] = new_price
+                found_items.append(itm)
+                break
+
     # If food items found in message:
     if found_items:
         for f_item in found_items:
-            existing = next((i for i in cart["items"] if i["id"] == f_item["id"]), None)
-            if existing:
-                existing["quantity"] += f_item["quantity"]
-            else:
+            # If item is a pizza, check if customer is updating size of existing pizza
+            base_id = f_item["id"].rsplit("_", 1)[0]
+            existing_diff_size = next((i for i in cart["items"] if i["id"].rsplit("_", 1)[0] == base_id), None)
+            if existing_diff_size:
+                cart["items"].remove(existing_diff_size)
                 cart["items"].append(f_item)
+            else:
+                existing = next((i for i in cart["items"] if i["id"] == f_item["id"]), None)
+                if existing:
+                    existing["quantity"] += f_item["quantity"]
+                else:
+                    cart["items"].append(f_item)
 
         items_summary = ", ".join([f"{i['quantity']}x {i['name']}" for i in cart["items"]])
 
@@ -519,10 +555,10 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         return f"Order note ho gaya ({items_summary})! Delivery address send karein please."
 
     # D. Address Provided for Existing Cart Items -> Confirm Order Slip
-    is_address_text = has_explicit_address or len(text.split()) >= 2
     is_waiting = cart.get("awaiting_address", False)
+    valid_address_provided = has_explicit_address or (is_waiting and not is_food_or_size and len(text.strip()) >= 3)
 
-    if cart.get("items") and (is_waiting or has_explicit_address or is_address_text):
+    if cart.get("items") and valid_address_provided:
         delivery_addr = extract_clean_address(message_text) if has_explicit_address else message_text
         cart["address"] = delivery_addr
         cart["awaiting_address"] = False
