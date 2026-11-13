@@ -66,10 +66,10 @@ async def save_history(phone_number: str, history: list):
     asyncio.create_task(set_kv(f"hist_{phone_number}", trimmed))
 
 async def get_cart(phone_number: str) -> dict:
-    if phone_number in user_carts and user_carts[phone_number].get("items"):
+    if phone_number in user_carts:
         return user_carts[phone_number]
     remote_cart = await get_kv(f"cart_{phone_number}")
-    if remote_cart:
+    if remote_cart and isinstance(remote_cart, dict):
         user_carts[phone_number] = remote_cart
     else:
         user_carts[phone_number] = {"items": [], "address": None, "awaiting_address": False}
@@ -300,6 +300,17 @@ def get_human_menu_text() -> str:
         f"Order karne ke liye item ka naam send karein! 😊"
     )
 
+def extract_clean_address(raw_text: str) -> str:
+    cleaned = re.sub(
+        r"\b(?:pizza|burger|deal|deals|khana|order|bhejo|bhej\s*do|mangwana|send|chahiye|de\s*do|hai|hoga|bhejwa\s*do)\b",
+        "",
+        raw_text,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(r"^\s*(?:on|at|pe|par|ko|for)\s+", "", cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r"\s+(?:pe|par|ko|mein|mai|par\s+bhej\s*do)$", "", cleaned, flags=re.IGNORECASE).strip()
+    return cleaned or raw_text.strip()
+
 async def generate_human_fallback(phone_number: str, message_text: str, customer_name: str = "Customer"):
     text = message_text.lower().strip()
     cart = await get_cart(phone_number)
@@ -323,6 +334,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     # 4. Clear / Cancel Cart
     if any(k in text for k in ["clear", "cancel", "khali", "delete", "nhi chahiye", "band karo"]):
         cart["items"] = []
+        cart["address"] = None
         cart["awaiting_address"] = False
         await save_cart(phone_number, cart)
         return f"Theek hai, aapka order cancel kar diya gaya."
@@ -340,18 +352,21 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     # 6. Parse Food Items (Pizzas, Burgers, Deals, Rolls, Broast, Fries, Drinks)
     found_items = []
 
-    # Size detection for Pizzas & Fries
+    # Size detection for Pizzas & Fries (Supports words and direct diameter numbers: 17, 13, 9, 6)
     size_selected = "medium"
     size_label = "Medium (9\")"
-    if any(s in text for s in ["extra large", "xl", "xlarge", "x-large", "17 inch", "17\"", "family"]):
+    if any(s in text for s in ["extra large", "xl", "xlarge", "x-large", "family", "17 inch", "17\""]) or re.search(r"\b17\b", text):
         size_selected = "xlarge"
         size_label = "XL Family (17\")"
-    elif any(s in text for s in ["large", "bada", "badi", "13 inch", "13\""]):
+    elif any(s in text for s in ["large", "bada", "badi", "13 inch", "13\""]) or re.search(r"\b13\b", text):
         size_selected = "large"
         size_label = "Large (13\")"
-    elif any(s in text for s in ["personal", "small", "chota", "choti", "6 inch", "6\""]):
+    elif any(s in text for s in ["personal", "small", "chota", "choti", "6 inch", "6\""]) or re.search(r"\b6\b", text):
         size_selected = "personal"
         size_label = "Personal (6\")"
+    elif any(s in text for s in ["medium", "darmiyana", "darmiyani", "9 inch", "9\""]) or re.search(r"\b9\b", text):
+        size_selected = "medium"
+        size_label = "Medium (9\")"
 
     # A. Pizza Flavors
     PIZZA_CATALOG = [
@@ -437,14 +452,23 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
 
             found_items.append({"id": item_def["id"], "name": item_def["name"], "price": item_def["price"], "quantity": qty})
 
-    # C. Address Keywords Check
+    # C. Address Keywords & Local Landmarks Check
     ADDRESS_KEYWORDS = [
         "house", "street", "gali", "mohalla", "road", "near", "dikhan", "d.i. khan", "d.i.khan",
-        "chowk", "chuk", "chashma", "cantt", "mor", "bazar", "bazaar", "colony", "town", "pull",
-        "pul", "ada", "addah", "kareeb", "opp", "opposite", "flat", "floor", "ward", "chak",
-        "hospital", "university", "college", "stop", "market", "plaza", "gate", "darwaza", "village", "gaon", "shop"
+        "chowk", "chuk", "chashma", "cantt", "mor", "mod", "muryali", "muaryali", "bazar", "bazaar",
+        "colony", "town", "pull", "pul", "ada", "adda", "addah", "kareeb", "opp", "opposite",
+        "flat", "floor", "ward", "chak", "hospital", "university", "college", "stop", "market",
+        "plaza", "gate", "darwaza", "village", "gaon", "shop", "topanwala", "bannu", "multan",
+        "circular", "chungi", "grid"
     ]
-    has_explicit_address = any(k in text for k in ADDRESS_KEYWORDS)
+    has_explicit_address = any(k in text for k in ADDRESS_KEYWORDS) or bool(re.search(r"\b(?:on|pe|par|near)\s+[a-z0-9]", text))
+
+    # If an address is provided in this turn, record it immediately in the cart
+    if has_explicit_address:
+        candidate_addr = extract_clean_address(message_text)
+        if candidate_addr:
+            cart["address"] = candidate_addr
+            await save_cart(phone_number, cart)
 
     # If food items found in message:
     if found_items:
@@ -457,22 +481,31 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
 
         items_summary = ", ".join([f"{i['quantity']}x {i['name']}" for i in cart["items"]])
 
-        # If customer ALSO sent address in the same message, generate confirmation slip immediately!
+        # Check if customer sent address now OR previously during a clarification turn
+        active_address = None
         if has_explicit_address:
+            active_address = extract_clean_address(message_text)
+            cart["address"] = active_address
+        elif cart.get("address"):
+            active_address = cart["address"]
+
+        # If customer provided address (now or previously), generate confirmation slip immediately!
+        if active_address:
             order_id = f"#FE-{random.randint(1000, 9999)}"
             items_list, subtotal, total = format_cart_summary(cart)
-            slip_text = create_order_placement_slip(order_id, customer_name, phone_number, message_text, cart)
+            slip_text = create_order_placement_slip(order_id, customer_name, phone_number, active_address, cart)
             order_details = {
                 "order_id": order_id,
                 "customer_name": customer_name,
                 "customer_phone": format_phone_number(phone_number),
-                "address": message_text,
+                "address": active_address,
                 "items_list": items_list,
                 "subtotal": subtotal,
                 "delivery_fee": 0,
                 "total": total,
             }
             cart["items"] = []
+            cart["address"] = None
             cart["awaiting_address"] = False
             await save_cart(phone_number, cart)
             return {
@@ -486,23 +519,24 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         return f"Order note ho gaya ({items_summary})! Delivery address send karein please."
 
     # D. Address Provided for Existing Cart Items -> Confirm Order Slip
-    is_address_text = has_explicit_address or len(text.split()) >= 3
+    is_address_text = has_explicit_address or len(text.split()) >= 2
     is_waiting = cart.get("awaiting_address", False)
 
-    if cart.get("items") and (is_waiting or is_address_text):
-        cart["address"] = message_text
+    if cart.get("items") and (is_waiting or has_explicit_address or is_address_text):
+        delivery_addr = extract_clean_address(message_text) if has_explicit_address else message_text
+        cart["address"] = delivery_addr
         cart["awaiting_address"] = False
         order_id = f"#FE-{random.randint(1000, 9999)}"
         items_list, subtotal, total = format_cart_summary(cart)
 
         # Generate official digital invoice slip
-        slip_text = create_order_placement_slip(order_id, customer_name, phone_number, message_text, cart)
+        slip_text = create_order_placement_slip(order_id, customer_name, phone_number, delivery_addr, cart)
 
         order_details = {
             "order_id": order_id,
             "customer_name": customer_name,
             "customer_phone": format_phone_number(phone_number),
-            "address": message_text,
+            "address": delivery_addr,
             "items_list": items_list,
             "subtotal": subtotal,
             "delivery_fee": 0,
@@ -510,6 +544,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         }
 
         cart["items"] = []  # Reset cart after order placed
+        cart["address"] = None
         await save_cart(phone_number, cart)
 
         return {
