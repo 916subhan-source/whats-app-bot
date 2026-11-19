@@ -317,37 +317,100 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     all_items_map = get_all_items_map()
 
     # 1. Greetings ("hi", "hello", "salam", "aoa", "hey")
-    if text in ["hi", "hello", "salam", "assalam o alaikum", "aoa", "hey", "start"]:
-        return f"Assalam-o-Alaikum {customer_name}! Aaj kya mangwayein ge aap?"
+    greetings = [
+        "hi", "hello", "salam", "assalam o alaikum", "assalam alaikum", "asalam alaikum",
+        "asalam o alaikum", "aoa", "hey", "start", "slam", "adaab", "kia hal hai",
+        "kya haal hai", "kese ho", "kaisay ho", "kia hal", "kya hal"
+    ]
+    if any(text == g or text.startswith(f"{g} ") or text.endswith(f" {g}") for g in greetings):
+        return f"Assalam-o-Alaikum {customer_name}! Cherry Peri Fast Food mein khush amdeed. Aaj kya mangwayein ge aap?"
 
-    # 2. Menu request
-    if any(k in text for k in ["menu", "kya hai", "list", "rates", "rate", "cheezain", "khana", "items"]):
+    # 2. Menu request / Food list inquiry ("kia kia cheezen hain", "menu", "kya hai", "rate list")
+    menu_inquiry_patterns = [
+        r"\b(?:menu|mainue|manu|card|catalog|catalogue|rate\s*list|price\s*list)\b",
+        r"\b(?:tasveer|tasweer|picture|pictures|pics|pic|photos)\b",
+        r"\b(?:kya|kia)\s+.*(?:cheezen|cheezain|cheezein|chizen|chizain|cheez|items|khana)\b",
+        r"\b(?:cheezen|cheezain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
+        r"\b(?:kya|kia)\s+(?:kya|kia|hai|hay|kuch|options|milta)\b",
+        r"\b(?:kya|kia)\s+available\b",
+        r"\b(?:show|send|bhejo|bhejein|dikhao|dikhayein)\s+.*(?:menu|list|card|rates)\b",
+        r"\b(?:rate|rates|price|prices)\s+.*(?:kya|kia|batao|batayein)\b"
+    ]
+    is_menu_inquiry = (
+        any(bool(re.search(pat, text)) for pat in menu_inquiry_patterns)
+        or any(k in text for k in ["menu", "rate list", "price list", "tasveer", "tasweer", "kya hai", "kia hai", "kya kya", "kia kia", "cheezen", "cheezain", "cheezein"])
+    )
+    if is_menu_inquiry:
         return get_human_menu_text()
 
-    # 3. View Cart / Total Bill
-    if any(k in text for k in ["cart", "bill", "mera order", "total kitna", "basket"]) and not any(k in text for k in ["clear", "cancel", "khatam"]):
+    # 3. Specific Category Inquiries (Deals, Pizzas, Burgers, Delivery Charges)
+    if any(k in text for k in ["koi deal", "deals kya", "deals batao", "special deals", "deal konsi", "konsi deal", "viral deal"]):
+        return (
+            "🌟 *Cherry Peri — Special Deals:*\n\n"
+            "1️⃣ *Student Viral Deal* — *Rs. 899*\n"
+            "   • 1x 6\" Personal Pizza\n"
+            "   • 1x Classic Zinger Burger + Fries\n"
+            "   • 1x 345ml Cold Drink\n\n"
+            "2️⃣ *Family Viral King Deal* — *Rs. 2,499*\n"
+            "   • 1x 9\" Medium Pizza\n"
+            "   • 4 Pcs Crispy Broast + Large Fries\n"
+            "   • 1x 1.5 Ltr Cold Drink\n\n"
+            "Order karne ke liye *Student Deal* ya *Family Deal* likhein! 😊"
+        )
+
+    if any(k in text for k in ["pizza flavors", "pizza flavor", "konsa pizza", "kaunsa pizza", "pizza options", "pizza menu", "pizza rates"]):
+        return (
+            "🍕 *Cherry Peri Pizza Flavors & Rates:*\n\n"
+            "🔥 *Regular Pizzas:*\n"
+            "• Chicken Tikka, Fajita, Tandoori, Hot N Spicy, Supreme, BBQ, Cheese Lover\n"
+            "  6\" Personal: Rs. 500 | 9\" Medium: Rs. 800 | 13\" Large: Rs. 1400 | 17\" XL: Rs. 1900\n\n"
+            "👑 *Special Pizzas:*\n"
+            "• Malai Boti, Cherry Peri Special, Bihari Kabab, Mughlai, Super Supreme\n"
+            "  6\" Personal: Rs. 600 | 9\" Medium: Rs. 950 | 13\" Large: Rs. 1600 | 17\" XL: Rs. 2100\n\n"
+            "Apna pasandeeda flavor aur size batayein (e.g. *Tikka 17* ya *Malai Boti Large*)!"
+        )
+
+    if any(k in text for k in ["burger menu", "burgers kya", "konsa burger", "burger options"]):
+        return (
+            "🍔 *Cherry Peri Burgers & Sandwiches:*\n\n"
+            "• Simple Zinger — Rs. 250\n"
+            "• Zinger Burger with Cheese — Rs. 300\n"
+            "• Afghani Burger — Rs. 350\n"
+            "• Classic Zinger + Fries — Rs. 450\n"
+            "• Cheese Zinger + Fries — Rs. 500\n"
+            "• Chicken Grill Burger + Fries — Rs. 550\n"
+            "• Mighty Zinger + Fries — Rs. 600\n"
+            "• Cherry Peri Special Grill + Fries — Rs. 700\n\n"
+            "Order karne ke liye burger ka naam batayein!"
+        )
+
+    if any(k in text for k in ["delivery charges", "delivery fee", "rider charges", "delivery free", "free delivery", "delivery kitni"]):
+        return "D.I. Khan shahar mein home delivery 100% FREE hai! (Delivery Charges: Rs. 0)."
+
+    # 4. View Cart / Total Bill
+    if any(k in text for k in ["cart", "bill", "mera order", "total kitna", "basket", "kitne huwe", "kitne huway", "kitne paise", "total bill", "kitna bana", "kitna bill"]) and not any(k in text for k in ["clear", "cancel", "khatam"]):
         if not cart.get("items"):
             return f"Cart khali hai. Kya order karna chahenge?"
         _, _, total = format_cart_summary(cart)
         return f"Total bill Rs. {total} hai. Delivery address send karein."
 
-    # 4. Clear / Cancel Cart
-    if any(k in text for k in ["clear", "cancel", "khali", "delete", "nhi chahiye", "band karo"]):
+    # 5. Clear / Cancel Cart
+    if any(k in text for k in ["clear", "cancel", "khali", "delete", "nhi chahiye", "nahi chahiye", "band karo", "rehne do", "cancel order", "khatam"]):
         cart["items"] = []
         cart["address"] = None
         cart["awaiting_address"] = False
         await save_cart(phone_number, cart)
         return f"Theek hai, aapka order cancel kar diya gaya."
 
-    # 5. Location / Timings / Payments
-    if any(k in text for k in ["location", "kahan", "address kahan", "kidhar", "kider"]):
+    # 6. Location / Timings / Payments
+    if any(k in text for k in ["location", "kahan", "address", "adrs", "kidhar", "kider", "kaha par", "dukan kahan", "shop kahan"]):
         return "Opposite Stylo Shopping Center, Circular Road, D.I. Khan par hamara restaurant hai."
 
-    if any(k in text for k in ["timing", "time", "kab tak", "open", "khula", "band"]):
+    if any(k in text for k in ["timing", "timings", "time", "kab tak", "open", "khula", "band", "close", "khulta", "kab band"]):
         return "Rozana dopehar 12:00 se raat 1:00 tak open hain."
 
-    if any(k in text for k in ["payment", "pesay", "paise", "easypaisa", "jazzcash", "card"]):
-        return "Cash on Delivery aur Easypaisa dono accept karte hain."
+    if any(k in text for k in ["payment", "payments", "pesay", "paise", "easypaisa", "easy paisa", "jazzcash", "jazz cash", "card", "online transfer", "account number"]):
+        return "Cash on Delivery aur Easypaisa (0341-5531083 — Rashid Naveed) dono accept karte hain."
 
     # 6. Parse Food Items (Pizzas, Burgers, Deals, Rolls, Broast, Fries, Drinks)
     found_items = []
@@ -601,24 +664,40 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
 async def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
     clean = message_text.lower().strip()
 
-    # Never send menu pictures if user is ordering food or providing delivery address
+    # 1. Explicit menu / food list inquiries (Always send pictures!)
+    menu_inquiry_patterns = [
+        r"\b(?:menu|mainue|manu|card|catalog|catalogue|rate\s*list|price\s*list)\b",
+        r"\b(?:tasveer|tasweer|picture|pictures|pics|pic|photos)\b",
+        r"\b(?:kya|kia)\s+.*(?:cheezen|cheezain|cheezein|chizen|chizain|cheez|items|khana)\b",
+        r"\b(?:cheezen|cheezain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
+        r"\b(?:kya|kia)\s+(?:kya|kia|hai|hay|kuch|options|milta)\b",
+        r"\b(?:kya|kia)\s+available\b",
+        r"\b(?:show|send|bhejo|bhejein|dikhao|dikhayein)\s+.*(?:menu|list|card|rates)\b",
+        r"\b(?:rate|rates|price|prices)\s+.*(?:kya|kia|batao|batayein)\b"
+    ]
+    is_explicit_menu = (
+        any(bool(re.search(pat, clean)) for pat in menu_inquiry_patterns)
+        or any(k in clean for k in ["menu", "rate list", "price list", "tasveer", "tasweer", "kya hai", "kia hai", "kya kya", "kia kia", "cheezen", "cheezain", "cheezein"])
+    )
+
+    if is_explicit_menu:
+        return True
+
+    # 2. Never send menu pictures if user is ordering specific food or providing delivery address
     food_or_order_words = [
         "deal", "burger", "pizza", "zinger", "broast", "wings", "fries",
         "sandwich", "pasta", "roll", "shawarma", "wrap", "coke", "drink",
         "bottle", "malai", "tikka", "fajita", "boti", "kabab", "paratha",
         "chowk", "chuk", "chashma", "road", "street", "shop", "cantt", "house", "gali", "mohalla",
-        "order", "karna", "mangwana", "bhejo", "bhej do", "chahiye", "dedo", "send", "de do"
+        "order", "karna", "mangwana", "bhejo", "bhej do", "chahiye", "dedo", "de do"
     ]
     if any(w in clean for w in food_or_order_words):
         return False
 
-    # Check for initial greetings or explicit menu commands
-    greetings = ["hi", "hello", "salam", "assalam o alaikum", "aoa", "hey", "start"]
+    # 3. Check for initial greetings
+    greetings = ["hi", "hello", "salam", "assalam o alaikum", "asalam alaikum", "aoa", "hey", "start", "slam"]
     is_pure_greeting = clean in greetings
-    is_explicit_menu = bool(re.search(r"\b(menu|tasweer|pictures)\b", clean))
 
-    if is_explicit_menu:
-        return True
     if is_pure_greeting:
         return not (await is_customer_welcomed(phone_number))
     return False
