@@ -330,7 +330,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         r"\b(?:menu|mainue|manu|card|catalog|catalogue|rate\s*list|price\s*list)\b",
         r"\b(?:tasveer|tasweer|picture|pictures|pics|pic|photos)\b",
         r"\b(?:kya|kia)\s+.*(?:cheezen|cheezain|cheezein|chizen|chizain|cheez|items|khana)\b",
-        r"\b(?:cheezen|cheezain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
+        r"\b(?:cheezen|cheez ain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
         r"\b(?:kya|kia)\s+(?:kya|kia|hai|hay|kuch|options|milta)\b",
         r"\b(?:kya|kia)\s+available\b",
         r"\b(?:show|send|bhejo|bhejein|dikhao|dikhayein)\s+.*(?:menu|list|card|rates)\b",
@@ -416,20 +416,26 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     found_items = []
 
     # Size detection for Pizzas & Fries (Supports words and direct diameter numbers: 17, 13, 9, 6)
-    size_selected = "medium"
-    size_label = "Medium (9\")"
+    explicit_size_tuple = None
     if any(s in text for s in ["extra large", "xl", "xlarge", "x-large", "family", "17 inch", "17\""]) or re.search(r"\b17\b", text):
-        size_selected = "xlarge"
-        size_label = "XL Family (17\")"
+        explicit_size_tuple = ("xlarge", "XL Family (17\")")
     elif any(s in text for s in ["large", "bada", "badi", "13 inch", "13\""]) or re.search(r"\b13\b", text):
-        size_selected = "large"
-        size_label = "Large (13\")"
+        explicit_size_tuple = ("large", "Large (13\")")
     elif any(s in text for s in ["personal", "small", "chota", "choti", "6 inch", "6\""]) or re.search(r"\b6\b", text):
-        size_selected = "personal"
-        size_label = "Personal (6\")"
+        explicit_size_tuple = ("personal", "Personal (6\")")
     elif any(s in text for s in ["medium", "darmiyana", "darmiyani", "9 inch", "9\""]) or re.search(r"\b9\b", text):
-        size_selected = "medium"
-        size_label = "Medium (9\")"
+        explicit_size_tuple = ("medium", "Medium (9\")")
+
+    if explicit_size_tuple:
+        size_selected, size_label = explicit_size_tuple
+        cart["pending_pizza_size"] = size_selected
+        cart["pending_pizza_size_label"] = size_label
+    elif cart.get("pending_pizza_size"):
+        size_selected = cart["pending_pizza_size"]
+        size_label = cart.get("pending_pizza_size_label", "Medium (9\")")
+    else:
+        size_selected = None
+        size_label = None
 
     # A. Pizza Flavors
     PIZZA_CATALOG = [
@@ -439,7 +445,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         {"id": "sp_mughlai", "name": "Mughlai Pizza", "keywords": ["mughlai", "mughlay", "muglai"], "default_price": 950},
         {"id": "sp_supersupreme", "name": "Super Supreme Pizza", "keywords": ["super supreme", "supreme pizza"], "default_price": 950},
         {"id": "p_fajita", "name": "Chicken Fajita Pizza", "keywords": ["fajita", "fajitha", "fajeeta", "fajeta", "chicken fajita"], "default_price": 800},
-        {"id": "p_chickentikka", "name": "Chicken Tikka Pizza", "keywords": ["tikka", "tika", "chicken tikka", "chicken tika", "tikah", "teeka", "tikka pizza", "tika pizza"], "default_price": 800},
+        {"id": "p_chickentikka", "name": "Chicken Tikka Pizza", "keywords": ["tikka", "tika", "tikaa", "chicken tikka", "chicken tika", "tikah", "teeka", "tikka pizza", "tika pizza", "tikaa pizza"], "default_price": 800},
         {"id": "p_tandoori", "name": "Tandoori Pizza", "keywords": ["tandoori", "tandori", "tanduri", "chicken tandoori"], "default_price": 800},
         {"id": "p_hotnspicy", "name": "Hot N Spicy Pizza", "keywords": ["hot n spicy", "hot spicy", "hot and spicy", "hot spicey"], "default_price": 800},
         {"id": "p_supreme", "name": "Supreme Pizza", "keywords": ["supreme"], "default_price": 800},
@@ -451,10 +457,21 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         {"id": "pp_kababstuff", "name": "Kabab Stuffer Pizza", "keywords": ["kabab stuffer", "kabab stuffed"], "default_price": 1200},
     ]
 
+    matched_p_def = None
     for p_def in PIZZA_CATALOG:
         if any(kw in text for kw in p_def["keywords"]):
+            matched_p_def = p_def
+            break
+
+    # If customer previously selected a pizza flavor and is now providing the size
+    if not matched_p_def and cart.get("pending_pizza_flavor") and size_selected:
+        matched_p_def = next((p for p in PIZZA_CATALOG if p["id"] == cart["pending_pizza_flavor"]), None)
+        cart["pending_pizza_flavor"] = None
+
+    if matched_p_def:
+        if size_selected:
             qty = 1
-            pattern = r"(\d+)\s*(?:x\s*)?(?:" + "|".join(re.escape(k) for k in p_def["keywords"]) + ")"
+            pattern = r"(\d+)\s*(?:x\s*)?(?:" + "|".join(re.escape(k) for k in matched_p_def["keywords"]) + ")"
             m = re.search(pattern, text)
             if m:
                 qty = int(m.group(1))
@@ -465,12 +482,21 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
             elif any(w in text for w in ["char ", "4 ", " 4", "four "]):
                 qty = 4
 
-            item_info = all_items_map.get(p_def["id"], {})
+            item_info = all_items_map.get(matched_p_def["id"], {})
             prices = item_info.get("prices", {})
-            price = prices.get(size_selected, p_def["default_price"])
-            item_name = f"{p_def['name']} ({size_label})"
-            found_items.append({"id": f"{p_def['id']}_{size_selected}", "name": item_name, "price": price, "quantity": qty})
-            break
+            price = prices.get(size_selected, matched_p_def["default_price"])
+            item_name = f"{matched_p_def['name']} ({size_label})"
+            found_items.append({"id": f"{matched_p_def['id']}_{size_selected}", "name": item_name, "price": price, "quantity": qty})
+
+            # Pizza item is successfully resolved, reset pending size/flavor
+            cart["pending_pizza_size"] = None
+            cart["pending_pizza_size_label"] = None
+            cart["pending_pizza_flavor"] = None
+        else:
+            # Flavor is specified, but size is missing. Ask customer for size!
+            cart["pending_pizza_flavor"] = matched_p_def["id"]
+            await save_cart(phone_number, cart)
+            return f"Jee {customer_name}, {matched_p_def['name']} mein kaunsa size chahiye? Personal 6\" (Rs. 500), Medium 9\" (Rs. 800), Large 13\" (Rs. 1,400) ya XL 17\" (Rs. 1,900)?"
 
     # B. Non-Pizza Items (Burgers, Deals, Broast, Rolls, Fries, Drinks)
     OTHER_ITEMS = [
@@ -654,6 +680,9 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
 
     # E. Helpful Clarifications for Vague Requests
     if "pizza" in text:
+        await save_cart(phone_number, cart)
+        if cart.get("pending_pizza_size_label"):
+            return f"Jee {customer_name}, {cart['pending_pizza_size_label']} pizza mein kaunsa flavor (Malai Boti, Fajita, Tikka, Tandoori) chahiye?"
         return f"Jee {customer_name}, pizza mein kaunsa flavor (Malai Boti, Fajita, Tikka, Tandoori) aur size (Personal 6\", Medium 9\", Large 13\", XL 17\") chahiye?"
     if "burger" in text:
         return f"Jee {customer_name}, burger mein kaunsa chahiye? Classic Zinger (Rs. 450), Cheese Zinger (Rs. 500), Mighty Zinger (Rs. 600) ya Chicken Grill (Rs. 550)?"
