@@ -805,17 +805,19 @@ async def should_send_menu_pictures(phone_number: str, message_text: str) -> boo
     # 1. Explicit menu / food list inquiries (Always send pictures!)
     menu_inquiry_patterns = [
         r"\b(?:menu|mainue|manu|card|catalog|catalogue|rate\s*list|price\s*list)\b",
-        r"\b(?:tasveer|tasweer|picture|pictures|pics|pic|photos)\b",
+        r"\b(?:photo|photos|image|images|tasveer|tasweer|picture|pictures|pics|pic)\b",
+        r"\b(?:deal|deals)\s*(?:list|card|dikhao|dikhayein|bhejo|bhejein|batao|batayein|show|send|kya|kia)\b",
+        r"\b(?:konsi|kaunsi)\s*(?:deal|deals)\b",
         r"\b(?:kya|kia)\s+.*(?:cheezen|cheezain|cheezein|chizen|chizain|cheez|items|khana)\b",
         r"\b(?:cheezen|cheezain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
         r"\b(?:kya|kia)\s+(?:kya|kia|hai|hay|kuch|options|milta)\b",
         r"\b(?:kya|kia)\s+available\b",
-        r"\b(?:show|send|bhejo|bhejein|dikhao|dikhayein)\s+.*(?:menu|list|card|rates)\b",
+        r"\b(?:show|send|bhejo|bhejein|dikhao|dikhayein)\s+.*(?:menu|list|card|rates|photo|photos|pic|pics|image|images|deals)\b",
         r"\b(?:rate|rates|price|prices)\s+.*(?:kya|kia|batao|batayein)\b"
     ]
     is_explicit_menu = (
         any(bool(re.search(pat, clean)) for pat in menu_inquiry_patterns)
-        or any(k in clean for k in ["menu", "rate list", "price list", "tasveer", "tasweer", "kya hai", "kia hai", "kya kya", "kia kia", "cheezen", "cheezain", "cheezein"])
+        or any(k in clean for k in ["menu", "rate list", "price list", "tasveer", "tasweer", "kya hai", "kia hai", "kya kya", "kia kia", "cheezen", "cheezain", "cheezein", "deals dikhao", "deals bhejo", "deals list", "photo", "photos", "pics", "pic"])
     )
 
     if is_explicit_menu:
