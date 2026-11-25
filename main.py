@@ -377,6 +377,21 @@ async def handle_incoming_messages(data: dict):
 
             # Process through unified chatbot engine
             reply = await process_message(from_number, incoming_text, customer_name)
+
+            # If customer asked for menu or needs pictures, send the 2 new official menu cards
+            if isinstance(reply, dict) and reply.get("send_menu_images"):
+                print(f"[MENU IMAGES EVO] Sending 2 new menu cards to {from_number}...")
+                for page in MENU_PAGES:
+                    try:
+                        await send_whatsapp_image(
+                            to=from_number,
+                            media_id=page.get("id"),
+                            image_url=page.get("url"),
+                            caption=page.get("caption")
+                        )
+                    except Exception as img_err:
+                        print(f"[MENU IMAGE EVO ERROR] {img_err}")
+
             text_to_send = reply.get("text", "") if isinstance(reply, dict) else str(reply)
             print(f"[REPLY EVO] Reply to {from_number}: \"{text_to_send[:80]}...\"")
             await send_whatsapp_message(from_number, text_to_send)
