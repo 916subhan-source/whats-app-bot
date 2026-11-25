@@ -14,9 +14,30 @@ ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 # ─────────────────────────────────────────────
-# ⚡ High-Speed Connection Pool & Persistent Cloud Storage
+# ⚡ High-Speed Local & Resilient Store (Replaces unreliable external KV)
 # ─────────────────────────────────────────────
-KV_BUCKET = os.getenv("KV_BUCKET", "QA3HUmSY1Tcfnr3nCQvFN1")
+_kv_file = os.path.join(tempfile.gettempdir(), "cherry_peri_kv.json")
+_mem_store = {}
+
+def _load_disk_store():
+    global _mem_store
+    try:
+        if os.path.exists(_kv_file):
+            with open(_kv_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    _mem_store.update(data)
+    except Exception:
+        pass
+
+def _save_disk_store():
+    try:
+        with open(_kv_file, "w", encoding="utf-8") as f:
+            json.dump(_mem_store, f)
+    except Exception:
+        pass
+
+_load_disk_store()
 
 _http_client: Optional[httpx.AsyncClient] = None
 
@@ -30,56 +51,48 @@ def get_http_client() -> httpx.AsyncClient:
     return _http_client
 
 async def get_kv(key: str, default=None):
-    try:
-        url = f"https://kvdb.io/{KV_BUCKET}/{key}"
-        client = get_http_client()
-        r = await client.get(url)
-        if r.status_code == 200:
-            return r.json()
-    except Exception:
-        pass
-    return default
+    if key in _mem_store:
+        return _mem_store[key]
+    _load_disk_store()
+    return _mem_store.get(key, default)
 
 async def set_kv(key: str, val):
-    try:
-        url = f"https://kvdb.io/{KV_BUCKET}/{key}"
-        client = get_http_client()
-        await client.post(url, content=json.dumps(val))
-    except Exception:
-        pass
+    _mem_store[key] = val
+    _save_disk_store()
 
 # In-memory caches for 0ms ultra-low latency
 conversation_history = {}
-user_carts = {}
 welcomed_users = set()
 
 async def get_history(phone_number: str) -> list:
-    if phone_number in conversation_history and conversation_history[phone_number]:
-        return list(conversation_history[phone_number])
-    remote_hist = await get_kv(f"hist_{phone_number}", default=[])
-    conversation_history[phone_number] = remote_hist or []
-    return list(conversation_history[phone_number])
+    return await get_kv(f"hist_{phone_number}", default=[])
 
 async def save_history(phone_number: str, history: list):
     trimmed = list(history[-10:])
-    conversation_history[phone_number] = trimmed
-    # Non-blocking async background persistence
-    asyncio.create_task(set_kv(f"hist_{phone_number}", trimmed))
+    await set_kv(f"hist_{phone_number}", trimmed)
 
 async def get_cart(phone_number: str) -> dict:
-    if phone_number in user_carts:
-        return user_carts[phone_number]
-    remote_cart = await get_kv(f"cart_{phone_number}")
-    if remote_cart and isinstance(remote_cart, dict):
-        user_carts[phone_number] = remote_cart
-    else:
-        user_carts[phone_number] = {"items": [], "address": None, "awaiting_address": False}
-    return user_carts[phone_number]
+    import time
+    now = time.time()
+    cart = await get_kv(f"cart_{phone_number}")
+    if not cart or not isinstance(cart, dict):
+        cart = {"items": [], "address": None, "awaiting_address": False, "updated_at": now}
+        await set_kv(f"cart_{phone_number}", cart)
+        return cart
+
+    # Auto-expire abandoned carts after 30 minutes of inactivity
+    updated_at = cart.get("updated_at", 0)
+    if cart.get("items") and updated_at and (now - updated_at > 1800):
+        print(f"[CART EXPIRED] Expired stale cart for {phone_number} (>30m inactive).")
+        cart = {"items": [], "address": None, "awaiting_address": False, "updated_at": now}
+        await set_kv(f"cart_{phone_number}", cart)
+
+    return cart
 
 async def save_cart(phone_number: str, cart: dict):
-    user_carts[phone_number] = cart
-    # Non-blocking async background persistence
-    asyncio.create_task(set_kv(f"cart_{phone_number}", cart))
+    import time
+    cart["updated_at"] = time.time()
+    await set_kv(f"cart_{phone_number}", cart)
 
 async def is_customer_welcomed(phone_number: str) -> bool:
     if phone_number in welcomed_users:
@@ -92,8 +105,7 @@ async def is_customer_welcomed(phone_number: str) -> bool:
 
 async def mark_customer_welcomed(phone_number: str):
     welcomed_users.add(phone_number)
-    # Non-blocking async background persistence
-    asyncio.create_task(set_kv(f"welcomed_{phone_number}", True))
+    await set_kv(f"welcomed_{phone_number}", True)
 
 def get_all_items_map():
     all_items = {}
