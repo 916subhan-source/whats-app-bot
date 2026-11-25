@@ -10,7 +10,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from menu import RESTAURANT_INFO, MENU, PIZZA_SIZES, PIZZA_CRUSTS
 
-load_dotenv(override=True)
+ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 # ─────────────────────────────────────────────
 # ⚡ High-Speed Connection Pool & Persistent Cloud Storage
@@ -160,23 +161,26 @@ CRITICAL RULES:
 *{clean_name}*
 Order #FE-[Random 4 Digits] Confirmed ✅
 
-*Customer:* {customer_name}
-*Phone:* {formatted_phone}
-*Address:* [Customer Address]
+*Customer Name:* {customer_name}
+*Contact Number:* {formatted_phone}
+*Delivery Address:* [Customer Address]
 
 *Items:*
 • [Qty]x [Item/Deal Name with components] — Rs. [Item Price x Qty]
 
-*Total Bill:* *Rs. [Total Bill]* (Cash on Delivery)
+*Food Total:* Rs. [Total Bill]
+*Delivery Charges:* Payable to rider at delivery time
+*Payment:* Cash on Delivery / Easypaisa (0341-5531083)
 *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
 
 Khana jald deliver hoga. Shukriya!
 
-4. NO DELIVERY CHARGES:
-   - Delivery is 100% FREE in D.I. Khan. NEVER add any delivery charges or delivery fee line. Total is strictly the sum of ordered items/deals.
+4. DELIVERY CHARGES POLICY:
+   - Delivery charges are NOT free. They are calculated based on distance and paid directly to the rider at delivery time. NEVER say delivery is free.
 
-5. CLEAN & PROFESSIONAL STYLE:
-   - Max 1 simple emoji per message (e.g. ✅). No colorful emoji spam.
+5. EMOJI DENSITY RULE:
+   - For short messages (greetings, questions, updates): use exactly 1 emoji.
+   - For long messages (receipts, full menus, summaries): use at most 2 to 3 emojis total. No emoji spam!
    - Natural conversational Urdu / English.
 
 COMPLETE MENU & EXACT PRICES (FROM OFFICIAL MENU PICTURES):
@@ -257,12 +261,14 @@ def create_order_placement_slip(order_id: str, customer_name: str, phone_number:
     return (
         f"*{clean_name}*\n"
         f"Order {order_id} Confirmed ✅\n\n"
-        f"*Customer:* {customer_name}\n"
-        f"*Phone:* {formatted_phone}\n"
-        f"*Address:* {address.strip()}\n\n"
+        f"*Customer Name:* {customer_name}\n"
+        f"*Contact Number:* {formatted_phone}\n"
+        f"*Delivery Address:* {address.strip()}\n\n"
         f"*Items:*\n"
         f"{items_list}\n\n"
-        f"*Total Bill: Rs. {total}* (Cash on Delivery)\n"
+        f"*Food Total:* Rs. {total}\n"
+        f"*Delivery Charges:* Payable to rider at delivery time\n"
+        f"*Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n"
         f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
         f"Khana jald deliver hoga. Shukriya!"
     )
@@ -295,8 +301,8 @@ def get_human_menu_text() -> str:
         f"🥤 *Drinks:*\n"
         f"  • 345ml Cold Drink — *Rs. 100*\n"
         f"  • 1.5 Ltr Cold Drink — *Rs. 220*\n\n"
-        f"🛵 *Delivery:* FREE in D.I. Khan (30-45 mins delivery)\n"
-        f"💵 *Payment:* Cash on Delivery (COD)\n\n"
+        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n"
+        f"💵 *Payment:* Cash on Delivery / Easypaisa\n\n"
         f"Order karne ke liye item ka naam send karein! 😊"
     )
 
@@ -385,7 +391,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         )
 
     if any(k in text for k in ["delivery charges", "delivery fee", "rider charges", "delivery free", "free delivery", "delivery kitni"]):
-        return "D.I. Khan shahar mein home delivery 100% FREE hai! (Delivery Charges: Rs. 0)."
+        return "Delivery charges location aur distance ke mutabiq rider delivery ke waqt collect karega. 🛵"
 
     # 4. View Cart / Total Bill
     if any(k in text for k in ["cart", "bill", "mera order", "total kitna", "basket", "kitne huwe", "kitne huway", "kitne paise", "total bill", "kitna bana", "kitna bill"]) and not any(k in text for k in ["clear", "cancel", "khatam"]):
