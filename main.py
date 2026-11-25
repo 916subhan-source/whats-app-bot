@@ -11,8 +11,9 @@ import httpx
 from dotenv import load_dotenv
 
 from chatbot import process_message, get_kv, set_kv
-from menu import MENU_PAGES
+from menu import MENU_PAGES, MENU
 from voice import transcribe_whatsapp_voice
+from database import init_db, seed_menu_items, db_save_order, db_get_recent_orders, is_postgres
 
 ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=ENV_PATH, override=True)
@@ -36,8 +37,17 @@ staff_silenced_until = {} # phone -> datetime timestamp
 app = FastAPI(
     title="🍕 Cherry Peri WhatsApp Food Delivery Bot — FastAPI",
     description="High-performance async WhatsApp Cloud API food delivery chatbot built with FastAPI & Gemini AI",
-    version="2.1.0"
+    version="2.2.0"
 )
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        init_db()
+        seed_menu_items(MENU)
+        print(f"[STARTUP] Database initialized and synced ({'PostgreSQL' if is_postgres() else 'SQLite'})!")
+    except Exception as e:
+        print(f"[STARTUP WARN] DB initialization error: {e}")
 
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -277,25 +287,23 @@ async def mark_as_read(message_id: str):
         pass
 
 async def dispatch_kitchen_order(details: dict, order_slip: str, customer_name: str, from_number: str):
-    # 1. Save to persistent KV live kitchen orders log
+    # 1. Save to Database (SQLite & PostgreSQL)
     try:
-        recent_orders = await get_kv("kitchen_recent_orders", default=[])
-        new_entry = {
+        order_payload = {
             "order_id": details.get("order_id", "Order"),
-            "timestamp": datetime.now().strftime("%d %b %Y, %I:%M %p"),
             "customer_name": details.get("customer_name", customer_name),
             "customer_phone": details.get("customer_phone", from_number),
             "address": details.get("address", "See slip"),
             "items_list": details.get("items_list", ""),
             "subtotal": details.get("subtotal", 0),
+            "delivery_fee": details.get("delivery_fee", 0),
             "total": details.get("total", 0),
             "slip": order_slip
         }
-        recent_orders.insert(0, new_entry)
-        await set_kv("kitchen_recent_orders", recent_orders[:50])
-        print(f"[KITCHEN LOG] Order {new_entry['order_id']} saved to live kitchen dashboard!")
-    except Exception as log_err:
-        print(f"[KITCHEN LOG ERROR] {log_err}")
+        db_save_order(order_payload)
+        print(f"[DB ORDER] Order {order_payload['order_id']} saved to database!")
+    except Exception as db_err:
+        print(f"[DB ORDER ERROR] {db_err}")
 
     # 2. Dispatch WhatsApp notification to configured owner numbers
     owner_phones_raw = os.getenv("OWNER_PHONE_NUMBER", "923160998053")
@@ -499,7 +507,7 @@ async def handle_incoming_messages(data: dict):
 # ─────────────────────────────────────────────
 @app.get("/orders", response_class=HTMLResponse, summary="Live Kitchen Orders Dashboard")
 async def kitchen_orders_dashboard():
-    orders = await get_kv("kitchen_recent_orders", default=[])
+    orders = db_get_recent_orders(limit=50)
     rows_html = ""
     for o in orders:
         rows_html += f"""
@@ -548,7 +556,8 @@ async def health_check():
         "status": "🟢 running",
         "framework": "FastAPI",
         "bot": "WhatsApp Food Delivery Bot",
-        "version": "2.0.0",
+        "version": "2.2.0",
+        "database": "PostgreSQL" if is_postgres() else "SQLite",
         "owner_alert_configured": has_owner,
         "owner_phone_masked": masked_owner,
         "gemini_api_configured": bool(os.getenv("GEMINI_API_KEY")),
