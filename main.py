@@ -537,6 +537,8 @@ async def health_check():
         "owner_alert_configured": has_owner,
         "owner_phone_masked": masked_owner,
         "gemini_api_configured": bool(os.getenv("GEMINI_API_KEY")),
+        "evolution_configured": bool(os.getenv("EVOLUTION_API_URL") and os.getenv("EVOLUTION_API_KEY")),
+        "evolution_instance": os.getenv("EVOLUTION_INSTANCE_NAME", "cherri perri"),
         "whatsapp_id_configured": bool(os.getenv("WHATSAPP_PHONE_NUMBER_ID")),
         "docs_url": "/docs"
     }
