@@ -219,10 +219,11 @@ async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_n
         }
     }
 
-    # Fast official low-latency models with strict 2.5s timeout
+    # Fast official low-latency models with 7.0s network timeout
     models_to_try = [
-        os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
-        "gemini-2.0-flash"
+        os.getenv("GEMINI_MODEL", "gemini-flash-lite-latest"),
+        "gemini-3.5-flash-lite",
+        "gemini-flash-latest"
     ]
 
     client = get_http_client()
@@ -230,7 +231,7 @@ async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_n
     for model_name in models_to_try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
         try:
-            response = await client.post(url, json=payload, timeout=2.5)
+            response = await client.post(url, json=payload, timeout=7.0)
             if response.status_code == 200:
                 data = response.json()
                 if "candidates" in data and len(data["candidates"]) > 0:
@@ -1169,14 +1170,32 @@ async def should_send_menu_pictures(phone_number: str, message_text: str) -> boo
     return False
 
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
-    should_send_menu_images = await should_send_menu_pictures(phone_number, message_text)
+    clean_text = message_text.lower().strip()
 
+    # 1. Direct Item Price & Large Quantity Math Calculator (100% accurate, 0ms, no menu images)
+    price_reply = analyze_item_price_and_calc(clean_text)
+    if price_reply:
+        return {
+            "text": price_reply,
+            "send_menu_images": False
+        }
+
+    # 2. Check if general menu pictures should be sent
+    should_send_menu_images = await should_send_menu_pictures(phone_number, message_text)
     if should_send_menu_images:
         await mark_customer_welcomed(phone_number)
 
-    # Check Gemini AI first if a valid API key is configured
-    api_key = os.getenv("GEMINI_API_KEY", "").strip()
-    is_valid_format = api_key.startswith("AIzaSy")
+    # 3. Check AI key (GEMINI_API_KEY or AI_MODEL_API_KEY)
+    gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+    ai_key = os.getenv("AI_MODEL_API_KEY", "").strip()
+    api_key = gemini_key
+    if not api_key:
+        if ai_key.startswith("AQ.") or ai_key.startswith("AIza"):
+            api_key = ai_key
+        elif not ai_key.startswith("freellmapi-"):
+            api_key = ai_key
+
+    is_valid_format = bool(api_key and (api_key.startswith("AQ.") or api_key.startswith("AIza") or len(api_key) > 20))
 
     if is_valid_format:
         try:
