@@ -279,8 +279,9 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
     # Try fast models first, then fallback - benchmarked on VPS
     models_to_try = [
         os.getenv("AI_MODEL_NAME", "gemini-3.5-flash-lite"),
-        "deepseek-v4-flash",
-        "qwen3.8-flash"
+        "qwen3.8-flash",
+        "gpt-5.6-luna",
+        "deepseek-v4-flash"
     ]
 
     client = get_http_client()
