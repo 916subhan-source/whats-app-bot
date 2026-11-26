@@ -252,6 +252,69 @@ async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_n
 
     raise ValueError(f"Gemini API generation failed: {last_err}")
 
+async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_name: str, phone_number: str) -> str:
+    sys_instruction = build_system_instruction(customer_name, phone_number)
+    messages = [
+        {"role": "system", "content": sys_instruction}
+    ]
+    for h in user_history:
+        role = "assistant" if h.get("role") in ("model", "assistant") else "user"
+        text = ""
+        if "parts" in h:
+            text = " ".join(p.get("text", "") for p in h["parts"] if isinstance(p, dict) and "text" in p)
+        elif "content" in h:
+            text = str(h["content"])
+        if text:
+            messages.append({"role": role, "content": text})
+
+    # Only keep last 6 messages to reduce payload size for fast VPS routing
+    if len(messages) > 7:
+        messages = [messages[0]] + messages[-6:]
+
+    endpoint = base_url.rstrip("/")
+    if not endpoint.endswith("/v1"):
+        endpoint = f"{endpoint}/v1"
+    url = f"{endpoint}/chat/completions"
+
+    # Try fast models first, then fallback - benchmarked on VPS
+    models_to_try = [
+        os.getenv("AI_MODEL_NAME", "gemini-3.5-flash-lite"),
+        "deepseek-v4-flash",
+        "qwen3.8-flash"
+    ]
+
+    client = get_http_client()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+
+    last_err = None
+    for model in models_to_try:
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 500
+        }
+        try:
+            response = await client.post(url, json=payload, headers=headers, timeout=7.0)
+            if response.status_code == 200:
+                data = response.json()
+                if "choices" in data and len(data["choices"]) > 0:
+                    return data["choices"][0]["message"]["content"].strip()
+            elif response.status_code in (401, 403):
+                raise ValueError(f"FreeLLM API auth error {response.status_code}")
+            else:
+                last_err = f"model={model} status={response.status_code}"
+        except Exception as e:
+            if "auth error" in str(e):
+                raise
+            last_err = str(e)
+            continue
+
+    raise ValueError(f"FreeLLM API failed: {last_err}")
+
 def format_cart_summary(cart):
     subtotal = 0
     items_list = ""
@@ -1185,19 +1248,36 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
     if should_send_menu_images:
         await mark_customer_welcomed(phone_number)
 
-    # 3. Check AI key (GEMINI_API_KEY or AI_MODEL_API_KEY)
+    # 3. Check AI Engine: FreeLLMAPI (VPS) or Google Gemini
+    freellm_key = os.getenv("AI_MODEL_API_KEY", "").strip()
+    freellm_base = os.getenv("AI_MODEL_BASE_URL", "").strip() or "http://76.13.18.85:3001/v1"
     gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
-    ai_key = os.getenv("AI_MODEL_API_KEY", "").strip()
-    api_key = gemini_key
-    if not api_key:
-        if ai_key.startswith("AQ.") or ai_key.startswith("AIza"):
-            api_key = ai_key
-        elif not ai_key.startswith("freellmapi-"):
-            api_key = ai_key
 
-    is_valid_format = bool(api_key and (api_key.startswith("AQ.") or api_key.startswith("AIza") or len(api_key) > 20))
+    ai_reply = None
 
-    if is_valid_format:
+    # Priority 1: FreeLLMAPI on your VPS
+    if freellm_key and freellm_key.startswith("freellmapi-"):
+        try:
+            print(f"[FREELLM VPS] Calling FreeLLMAPI at {freellm_base} for {customer_name} (+{phone_number})...")
+            history = await get_history(phone_number)
+            history.append({
+                "role": "user",
+                "parts": [{"text": message_text}]
+            })
+            recent_history = history[-10:]
+            ai_reply = await call_freellm_ai(recent_history, freellm_base, freellm_key, customer_name, phone_number)
+            if ai_reply:
+                history.append({
+                    "role": "model",
+                    "parts": [{"text": ai_reply}]
+                })
+                await save_history(phone_number, history)
+                print(f"[FREELLM OK] Reply generated: \"{ai_reply[:60]}...\"")
+        except Exception as e:
+            print(f"[FREELLM VPS ERROR] {e} -> Falling back to Gemini AI...")
+
+    # Priority 2: Google Gemini AI
+    if not ai_reply and gemini_key:
         try:
             print(f"[GEMINI] Calling Gemini AI for {customer_name} (+{phone_number})...")
             history = await get_history(phone_number)
@@ -1206,15 +1286,20 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 "parts": [{"text": message_text}]
             })
             recent_history = history[-10:]
-            ai_reply = await call_gemini_ai(recent_history, api_key, customer_name, phone_number)
-            history.append({
-                "role": "model",
-                "parts": [{"text": ai_reply}]
-            })
-            await save_history(phone_number, history)
-            print(f"[GEMINI OK] Reply generated: \"{ai_reply[:60]}...\"")
+            ai_reply = await call_gemini_ai(recent_history, gemini_key, customer_name, phone_number)
+            if ai_reply:
+                history.append({
+                    "role": "model",
+                    "parts": [{"text": ai_reply}]
+                })
+                await save_history(phone_number, history)
+                print(f"[GEMINI OK] Reply generated: \"{ai_reply[:60]}...\"")
+        except Exception as e:
+            print(f"[GEMINI ERROR] {e}")
 
-            # Check if order was confirmed with final slip
+    if ai_reply:
+        try:
+            # Check if order was confirmed with final receipt slip
             has_slip = (
                 "#fe-" in ai_reply.lower()
                 or "order #" in ai_reply.lower()
@@ -1260,7 +1345,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 "send_menu_images": should_send_menu_images
             }
         except Exception as e:
-            print(f"[GEMINI ERROR] {e}")
+            print(f"[AI REPLY ERROR] {e}")
 
     print("[FALLBACK] Using local human fallback engine...")
     fallback_res = await generate_human_fallback(phone_number, message_text, customer_name)
