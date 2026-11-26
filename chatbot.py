@@ -276,12 +276,12 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
         endpoint = f"{endpoint}/v1"
     url = f"{endpoint}/chat/completions"
 
-    # Try fast models first, then fallback - benchmarked on VPS
+    # Try ultra-fast models first (benchmarked live on your VPS FreeLLMAPI)
     models_to_try = [
-        os.getenv("AI_MODEL_NAME", "gemini-3.5-flash-lite"),
-        "qwen3.8-flash",
-        "gpt-5.6-luna",
-        "deepseek-v4-flash"
+        os.getenv("AI_MODEL_NAME", "gemini-3.1-flash-lite"),
+        "gemini-flash-lite",
+        "gemini-3.5-flash-lite",
+        "gpt-5.4-mini"
     ]
 
     client = get_http_client()
