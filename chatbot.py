@@ -165,8 +165,32 @@ CRITICAL RULES:
      * If they say just "1 burger" without type: ask "Zinger burger, Anda burger ya Chapli burger?"
    - NEVER ask for size or item options if the customer ordered any Deal!
 
-3. ORDER CONFIRMATION SLIP:
-   - Output the slip when items/deals and delivery address are known:
+3. ⚠️ TWO-STEP ORDER CONFIRMATION PROTOCOL (CRITICAL MANDATORY RULE):
+   - STEP 1 (ORDER SUMMARY & REVIEW):
+     * When the customer's items/deals and delivery address are collected, DO NOT immediately confirm the order!
+     * Output the Order Summary and explicitly ask the customer to confirm:
+
+*{clean_name}*
+📋 *Order Summary / Jaiza*
+
+*Customer Name:* {customer_name}
+*Contact Number:* {formatted_phone}
+*Delivery Address:* [Customer Address]
+
+*Items:*
+• [Qty]x [Item/Deal Name with components] — Rs. [Item Price x Qty]
+
+*Food Total:* Rs. [Total Bill]
+*Delivery Charges:* Payable to rider at delivery time
+*Payment:* Cash on Delivery / Easypaisa (0341-5531083)
+*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
+
+👉 *Kya aap is order ko confirm karte hain?*
+(Order finalize karne ke liye please *"Yes / Haan"* ya *"Confirm"* reply karein.)
+
+   - STEP 2 (FINAL ORDER CONFIRMED):
+     * ONLY after the customer explicitly replies with "Yes", "Haan", "Confirm", "OK", "Theek hai", "Bhej dein":
+     * Output the official confirmed slip:
 
 *{clean_name}*
 Order #FE-[Random 4 Digits] Confirmed ✅
@@ -183,7 +207,7 @@ Order #FE-[Random 4 Digits] Confirmed ✅
 *Payment:* Cash on Delivery / Easypaisa (0341-5531083)
 *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
 
-Khana jald deliver hoga. Shukriya!
+Aap ka order kitchen mein bhej diya gaya hai aur jald deliver hoga. Shukriya! 🛵
 
 4. DELIVERY CHARGES POLICY:
    - Delivery charges are NOT free. They are calculated based on distance and paid directly to the rider at delivery time. NEVER say delivery is free.
@@ -326,6 +350,29 @@ def format_cart_summary(cart):
     total = subtotal
     return items_list.strip(), subtotal, total
 
+def create_order_summary_slip(customer_name: str, phone_number: str, address: str, cart: dict) -> str:
+    formatted_phone = format_phone_number(phone_number)
+    items_list, subtotal, total = format_cart_summary(cart)
+    if not items_list:
+        items_list = "• Order items discussed in chat"
+    clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
+
+    return (
+        f"*{clean_name}*\n"
+        f"📋 *Order Summary / Jaiza*\n\n"
+        f"*Customer Name:* {customer_name}\n"
+        f"*Contact Number:* {formatted_phone}\n"
+        f"*Delivery Address:* {address.strip()}\n\n"
+        f"*Items:*\n"
+        f"{items_list}\n\n"
+        f"*Food Total:* Rs. {total}\n"
+        f"*Delivery Charges:* Payable to rider at delivery time\n"
+        f"*Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n"
+        f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
+        f"👉 *Kya aap is order ko confirm karte hain?*\n"
+        f"(Order finalize karne ke liye please *'Yes' / 'Haan'* ya *'Confirm'* reply karein.)"
+    )
+
 def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict) -> str:
     formatted_phone = format_phone_number(phone_number)
     items_list, subtotal, total = format_cart_summary(cart)
@@ -345,7 +392,7 @@ def create_order_placement_slip(order_id: str, customer_name: str, phone_number:
         f"*Delivery Charges:* Payable to rider at delivery time\n"
         f"*Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n"
         f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
-        f"Khana jald deliver hoga. Shukriya!"
+        f"Aap ka order kitchen mein bhej diya gaya hai aur jald deliver hoga. Shukriya! 🛵"
     )
 
 def get_human_menu_text() -> str:
@@ -703,6 +750,52 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     text = message_text.lower().strip()
     cart = await get_cart(phone_number)
     all_items_map = get_all_items_map()
+
+    # 0. Check if customer is responding to an Order Summary Confirmation request
+    if cart.get("awaiting_confirmation") and cart.get("items") and cart.get("address"):
+        confirm_words = [
+            "yes", "y", "haan", "ha", "han", "confirm", "theek hai", "theek", "thik hai", "thik",
+            "ji", "jee", "ji haan", "jee haan", "ok", "okay", "done", "bhej do", "bhej dein",
+            "bhejo", "kar do", "kardo", "kar dein", "order kardo", "order kar dein", "final",
+            "send", "ready", "confirm hai", "theek hay", "ha g", "haa", "g", "sahih"
+        ]
+        cancel_words = ["no", "n", "nahi", "nahin", "cancel", "mat karo", "rehne do", "chhor do", "cancle"]
+
+        is_confirm = any(text == w or text.startswith(f"{w} ") or text.endswith(f" {w}") or f" {w} " in f" {text} " for w in confirm_words)
+        is_cancel = any(text == w or text.startswith(f"{w} ") or text.endswith(f" {w}") or f" {w} " in f" {text} " for w in cancel_words)
+
+        if is_confirm:
+            order_id = f"#FE-{random.randint(1000, 9999)}"
+            active_address = cart.get("address", "")
+            items_list, subtotal, total = format_cart_summary(cart)
+            slip_text = create_order_placement_slip(order_id, customer_name, phone_number, active_address, cart)
+            order_details = {
+                "order_id": order_id,
+                "customer_name": customer_name,
+                "customer_phone": format_phone_number(phone_number),
+                "address": active_address,
+                "items_list": items_list,
+                "subtotal": subtotal,
+                "delivery_fee": 0,
+                "total": total,
+            }
+            cart["items"] = []
+            cart["address"] = None
+            cart["awaiting_address"] = False
+            cart["awaiting_confirmation"] = False
+            await save_cart(phone_number, cart)
+            return {
+                "text": slip_text,
+                "order_confirmed": True,
+                "order_details": order_details
+            }
+        elif is_cancel:
+            cart["items"] = []
+            cart["address"] = None
+            cart["awaiting_address"] = False
+            cart["awaiting_confirmation"] = False
+            await save_cart(phone_number, cart)
+            return f"Jee {customer_name}, aap ka order cancel kar diya gaya hai. Agar dobara kuch mangwana ho to batayein!"
 
     # 1. Greetings ("hi", "hello", "salam", "aoa", "hey")
     greetings = [
@@ -1101,36 +1194,23 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         elif cart.get("address"):
             active_address = cart["address"]
 
-        # If customer provided address (now or previously), generate confirmation slip immediately!
+        # If customer provided address (now or previously), generate Order Summary first and ask confirmation!
         if active_address:
-            order_id = f"#FE-{random.randint(1000, 9999)}"
-            items_list, subtotal, total = format_cart_summary(cart)
-            slip_text = create_order_placement_slip(order_id, customer_name, phone_number, active_address, cart)
-            order_details = {
-                "order_id": order_id,
-                "customer_name": customer_name,
-                "customer_phone": format_phone_number(phone_number),
-                "address": active_address,
-                "items_list": items_list,
-                "subtotal": subtotal,
-                "delivery_fee": 0,
-                "total": total,
-            }
-            cart["items"] = []
-            cart["address"] = None
+            summary_text = create_order_summary_slip(customer_name, phone_number, active_address, cart)
+            cart["address"] = active_address
             cart["awaiting_address"] = False
+            cart["awaiting_confirmation"] = True
             await save_cart(phone_number, cart)
             return {
-                "text": slip_text,
-                "order_confirmed": True,
-                "order_details": order_details
+                "text": summary_text,
+                "order_confirmed": False
             }
 
         cart["awaiting_address"] = True
         await save_cart(phone_number, cart)
         return f"Order note ho gaya ({items_summary})! Delivery address send karein please."
 
-    # D. Address Provided for Existing Cart Items -> Confirm Order Slip
+    # D. Address Provided for Existing Cart Items -> Show Order Summary & Ask Confirmation
     is_waiting = cart.get("awaiting_address", False)
     valid_address_provided = has_explicit_address or (is_waiting and not is_food_or_size and len(text.strip()) >= 3)
 
@@ -1138,31 +1218,13 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         delivery_addr = extract_clean_address(message_text) if has_explicit_address else message_text
         cart["address"] = delivery_addr
         cart["awaiting_address"] = False
-        order_id = f"#FE-{random.randint(1000, 9999)}"
-        items_list, subtotal, total = format_cart_summary(cart)
-
-        # Generate official digital invoice slip
-        slip_text = create_order_placement_slip(order_id, customer_name, phone_number, delivery_addr, cart)
-
-        order_details = {
-            "order_id": order_id,
-            "customer_name": customer_name,
-            "customer_phone": format_phone_number(phone_number),
-            "address": delivery_addr,
-            "items_list": items_list,
-            "subtotal": subtotal,
-            "delivery_fee": 0,
-            "total": total,
-        }
-
-        cart["items"] = []  # Reset cart after order placed
-        cart["address"] = None
+        cart["awaiting_confirmation"] = True
+        summary_text = create_order_summary_slip(customer_name, phone_number, delivery_addr, cart)
         await save_cart(phone_number, cart)
 
         return {
-            "text": slip_text,
-            "order_confirmed": True,
-            "order_details": order_details
+            "text": summary_text,
+            "order_confirmed": False
         }
 
     # E. Helpful Clarifications for Vague Requests
@@ -1300,16 +1362,26 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
 
     if ai_reply:
         try:
-            # Check if order was confirmed with final receipt slip
+            # Check if order was confirmed with final receipt slip vs still asking for confirmation
+            is_asking_confirmation = any(q in ai_reply.lower() for q in [
+                "kya aap", "confirm karte", "order summary", "jaiza", "reply 'yes'",
+                "reply yes", "haan ya confirm", "confirm kar", "finalize karne", "kya ye order confirm"
+            ])
+
             has_slip = (
-                "#fe-" in ai_reply.lower()
-                or "order #" in ai_reply.lower()
-                or ("confirmed" in ai_reply.lower() and ("total" in ai_reply.lower() or "bill" in ai_reply.lower() or "slip" in ai_reply.lower()))
-                or ("receipt" in ai_reply.lower() and "rs." in ai_reply.lower())
+                not is_asking_confirmation
+                and (
+                    bool(re.search(r"order\s+#fe-\d{4}\s+confirmed", ai_reply, re.IGNORECASE))
+                    or ("confirmed" in ai_reply.lower() and bool(re.search(r"#fe-\d{4}", ai_reply, re.IGNORECASE)))
+                )
             )
 
+            cart = await get_cart(phone_number)
+            if is_asking_confirmation:
+                cart["awaiting_confirmation"] = True
+                await save_cart(phone_number, cart)
+
             if has_slip:
-                cart = await get_cart(phone_number)
                 order_id = f"#FE-{random.randint(1000, 9999)}"
                 id_match = re.search(r"#fe-\d{4}", ai_reply, re.IGNORECASE)
                 if id_match:
@@ -1320,18 +1392,22 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 if total_match:
                     total = total_match.group(1).replace(",", "")
 
+                delivery_address = cart.get("address") or message_text
+
                 order_details = {
                     "order_id": order_id,
                     "customer_name": customer_name,
                     "customer_phone": format_phone_number(phone_number),
-                    "address": message_text,
+                    "address": delivery_address,
                     "items_list": items_list,
                     "subtotal": subtotal,
                     "delivery_fee": 0,
                     "total": total,
                 }
                 cart["items"] = []
+                cart["address"] = None
                 cart["awaiting_address"] = False
+                cart["awaiting_confirmation"] = False
                 await save_cart(phone_number, cart)
                 await save_history(phone_number, [])
                 return {
@@ -1343,6 +1419,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
 
             return {
                 "text": ai_reply,
+                "order_confirmed": False,
                 "send_menu_images": should_send_menu_images
             }
         except Exception as e:
