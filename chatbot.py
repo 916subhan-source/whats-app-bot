@@ -167,46 +167,46 @@ CRITICAL RULES:
 
 3. ⚠️ TWO-STEP ORDER CONFIRMATION PROTOCOL (CRITICAL MANDATORY RULE):
    - STEP 1 (ORDER SUMMARY & REVIEW):
-     * When the customer's items/deals and delivery address are collected, DO NOT immediately confirm the order!
-     * Output the Order Summary and explicitly ask the customer to confirm:
+     * When items and delivery address are collected, DO NOT immediately confirm the order!
+     * Output the simplified, elegant Order Summary (DO NOT INCLUDE PAYMENT LINE) and ask the customer to confirm:
 
 *{clean_name}*
-📋 *Order Summary / Jaiza*
+📋 *Order Summary*
+────────────────────
+👤 *Customer:* {customer_name} | {formatted_phone}
+📍 *Delivery Address:* [Customer Address]
 
-*Customer Name:* {customer_name}
-*Contact Number:* {formatted_phone}
-*Delivery Address:* [Customer Address]
-
-*Items:*
+🍽️ *Items:*
 • [Qty]x [Item/Deal Name with components] — Rs. [Item Price x Qty]
+[If customer gave any special instruction like "cheese kam", "kam sauce", "spicy", "extra sauce", include:
+📝 *Special Note:* [Customer instructions]]
 
-*Food Total:* Rs. [Total Bill]
-*Delivery Charges:* Payable to rider at delivery time
-*Payment:* Cash on Delivery / Easypaisa (0341-5531083)
-*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
-
+💰 *Food Total:* Rs. [Total Bill]
+🛵 *Delivery Charges:* Rider distance ke mutabiq collect karega
+⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
+────────────────────
 👉 *Kya aap is order ko confirm karte hain?*
 (Order finalize karne ke liye please *"Yes / Haan"* ya *"Confirm"* reply karein.)
 
    - STEP 2 (FINAL ORDER CONFIRMED):
      * ONLY after the customer explicitly replies with "Yes", "Haan", "Confirm", "OK", "Theek hai", "Bhej dein":
-     * Output the official confirmed slip:
+     * Output the official confirmed slip (DO NOT INCLUDE PAYMENT LINE):
 
 *{clean_name}*
 Order #FE-[Random 4 Digits] Confirmed ✅
+────────────────────
+👤 *Customer:* {customer_name} | {formatted_phone}
+📍 *Delivery Address:* [Customer Address]
 
-*Customer Name:* {customer_name}
-*Contact Number:* {formatted_phone}
-*Delivery Address:* [Customer Address]
-
-*Items:*
+🍽️ *Items:*
 • [Qty]x [Item/Deal Name with components] — Rs. [Item Price x Qty]
+[If customer gave any special instruction:
+📝 *Special Note:* [Customer instructions]]
 
-*Food Total:* Rs. [Total Bill]
-*Delivery Charges:* Payable to rider at delivery time
-*Payment:* Cash on Delivery / Easypaisa (0341-5531083)
-*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
-
+💰 *Food Total:* Rs. [Total Bill]
+🛵 *Delivery Charges:* Rider distance ke mutabiq collect karega
+⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
+────────────────────
 Aap ka order kitchen mein bhej diya gaya hai aur jald deliver hoga. Shukriya! 🛵
 
 4. DELIVERY CHARGES POLICY:
@@ -350,48 +350,93 @@ def format_cart_summary(cart):
     total = subtotal
     return items_list.strip(), subtotal, total
 
-def create_order_summary_slip(customer_name: str, phone_number: str, address: str, cart: dict) -> str:
+def detect_special_notes(raw_text: str) -> Optional[str]:
+    clean = raw_text.lower().strip()
+    notes = []
+
+    # Check for parenthetical instructions first e.g. "(Small - Tikka, Cheese kam)" or "(Kam sauce ke sath)"
+    parenthesized = re.findall(r"\(([^)]+)\)", raw_text)
+    for p in parenthesized:
+        p_clean = p.strip()
+        if any(w in p_clean.lower() for w in ["kam", "extra", "without", "no ", "spicy", "mirch", "sauce", "cheese", "crispy"]):
+            notes.append(p_clean)
+
+    patterns = [
+        r"\b(?:kam\s*sauce\s*ke\s*sath|extra\s*sauce\s*ke\s*sath|cheese\s*kam\s*ke\s*sath)\b",
+        r"\b(?:cheese\s*kam|kam\s*cheese|without\s*cheese|no\s*cheese|extra\s*cheese)\b",
+        r"\b(?:kam\s*sauce|sauce\s*kam|extra\s*sauce|without\s*sauce|no\s*sauce|sauce\s*zyada)\b",
+        r"\b(?:extra\s*spicy|bohat\s*spicy|kam\s*spicy|less\s*spicy|non\s*spicy|tez\s*mirch|kam\s*mirch|spicy)\b",
+        r"\b(?:without\s*mayo|no\s*mayo|mayo\s*kam|mayo\s*nahi)\b",
+        r"\b(?:without\s*onion|no\s*onion|pyaz\s*kam|pyaz\s*nahi)\b",
+        r"\b(?:extra\s*crispy|crispy|well\s*done|garam\s*garam)\b",
+        r"\b(?:thandi\s*drink|chilled\s*drink|sprite\s*chahiye|coke\s*chahiye|sting\s*chahiye)\b"
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, clean)
+        if m:
+            val = m.group(0).strip().title()
+            if not any(val.lower() in n.lower() for n in notes):
+                notes.append(val)
+
+    if notes:
+        return ", ".join(notes)
+    return None
+
+def create_order_summary_slip(customer_name: str, phone_number: str, address: str, cart: dict, special_notes: str = None) -> str:
     formatted_phone = format_phone_number(phone_number)
     items_list, subtotal, total = format_cart_summary(cart)
     if not items_list:
         items_list = "• Order items discussed in chat"
     clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
+    note_line = ""
+    active_note = special_notes or cart.get("special_notes")
+    if active_note:
+        note_line = f"📝 *Special Note:* {active_note.strip()}\n"
+
     return (
         f"*{clean_name}*\n"
-        f"📋 *Order Summary / Jaiza*\n\n"
-        f"*Customer Name:* {customer_name}\n"
-        f"*Contact Number:* {formatted_phone}\n"
-        f"*Delivery Address:* {address.strip()}\n\n"
-        f"*Items:*\n"
-        f"{items_list}\n\n"
-        f"*Food Total:* Rs. {total}\n"
-        f"*Delivery Charges:* Payable to rider at delivery time\n"
-        f"*Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n"
-        f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
+        f"📋 *Order Summary*\n"
+        f"────────────────────\n"
+        f"👤 *Customer:* {customer_name} | {formatted_phone}\n"
+        f"📍 *Delivery Address:* {address.strip()}\n\n"
+        f"🍽️ *Items:*\n"
+        f"{items_list}\n"
+        f"{note_line}\n"
+        f"💰 *Food Total:* Rs. {total}\n"
+        f"🛵 *Delivery Charges:* Payable to rider at delivery time\n"
+        f"⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n"
+        f"────────────────────\n"
         f"👉 *Kya aap is order ko confirm karte hain?*\n"
-        f"(Order finalize karne ke liye please *'Yes' / 'Haan'* ya *'Confirm'* reply karein.)"
+        f"(Order finalize karne ke liye please *'Yes / Haan'* ya *'Confirm'* reply karein.)"
     )
 
-def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict) -> str:
+def create_order_placement_slip(order_id: str, customer_name: str, phone_number: str, address: str, cart: dict, special_notes: str = None) -> str:
     formatted_phone = format_phone_number(phone_number)
     items_list, subtotal, total = format_cart_summary(cart)
     if not items_list:
         items_list = "• Order items discussed in chat"
     clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
+    note_line = ""
+    active_note = special_notes or cart.get("special_notes")
+    if active_note:
+        note_line = f"📝 *Special Note:* {active_note.strip()}\n"
+
     return (
         f"*{clean_name}*\n"
-        f"Order {order_id} Confirmed ✅\n\n"
-        f"*Customer Name:* {customer_name}\n"
-        f"*Contact Number:* {formatted_phone}\n"
-        f"*Delivery Address:* {address.strip()}\n\n"
-        f"*Items:*\n"
-        f"{items_list}\n\n"
-        f"*Food Total:* Rs. {total}\n"
-        f"*Delivery Charges:* Payable to rider at delivery time\n"
-        f"*Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n"
-        f"*Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n\n"
+        f"Order {order_id} Confirmed ✅\n"
+        f"────────────────────\n"
+        f"👤 *Customer:* {customer_name} | {formatted_phone}\n"
+        f"📍 *Delivery Address:* {address.strip()}\n\n"
+        f"🍽️ *Items:*\n"
+        f"{items_list}\n"
+        f"{note_line}\n"
+        f"💰 *Food Total:* Rs. {total}\n"
+        f"🛵 *Delivery Charges:* Payable to rider at delivery time\n"
+        f"⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}\n"
+        f"────────────────────\n"
         f"Aap ka order kitchen mein bhej diya gaya hai aur jald deliver hoga. Shukriya! 🛵"
     )
 
@@ -775,12 +820,14 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
                 "customer_phone": format_phone_number(phone_number),
                 "address": active_address,
                 "items_list": items_list,
+                "special_notes": cart.get("special_notes") or "",
                 "subtotal": subtotal,
                 "delivery_fee": 0,
                 "total": total,
             }
             cart["items"] = []
             cart["address"] = None
+            cart["special_notes"] = None
             cart["awaiting_address"] = False
             cart["awaiting_confirmation"] = False
             await save_cart(phone_number, cart)
@@ -792,6 +839,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         elif is_cancel:
             cart["items"] = []
             cart["address"] = None
+            cart["special_notes"] = None
             cart["awaiting_address"] = False
             cart["awaiting_confirmation"] = False
             await save_cart(phone_number, cart)
@@ -1306,6 +1354,13 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
             "send_menu_images": False
         }
 
+    # Record any customer special instructions (e.g. "cheese kam", "kam sauce", "spicy")
+    found_note = detect_special_notes(message_text)
+    if found_note:
+        cart_note = await get_cart(phone_number)
+        cart_note["special_notes"] = found_note
+        await save_cart(phone_number, cart_note)
+
     # 2. Check if general menu pictures should be sent
     should_send_menu_images = await should_send_menu_pictures(phone_number, message_text)
     if should_send_menu_images:
@@ -1361,6 +1416,9 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
             print(f"[GEMINI ERROR] {e}")
 
     if ai_reply:
+        # Strip out any legacy payment lines to keep template 100% clean and elegant
+        ai_reply = re.sub(r"\*?payment:\*?[^\n]+\n?", "", ai_reply, flags=re.IGNORECASE).strip()
+
         try:
             # Check if order was confirmed with final receipt slip vs still asking for confirmation
             is_asking_confirmation = any(q in ai_reply.lower() for q in [
@@ -1400,12 +1458,14 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                     "customer_phone": format_phone_number(phone_number),
                     "address": delivery_address,
                     "items_list": items_list,
+                    "special_notes": cart.get("special_notes") or "",
                     "subtotal": subtotal,
                     "delivery_fee": 0,
                     "total": total,
                 }
                 cart["items"] = []
                 cart["address"] = None
+                cart["special_notes"] = None
                 cart["awaiting_address"] = False
                 cart["awaiting_confirmation"] = False
                 await save_cart(phone_number, cart)
