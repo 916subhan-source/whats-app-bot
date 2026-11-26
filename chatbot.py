@@ -461,8 +461,7 @@ def get_human_menu_text() -> str:
         f"  • Chicken Shawarma: Rs. 200 (Reg) / Rs. 150 (Special)\n"
         f"  • Zinger Shawarma: Rs. 300 (Reg) / Rs. 220 (Special)\n"
         f"  • Zinger Paratha Roll: Rs. 350 (Reg) / Rs. 270 (Special)\n\n"
-        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n"
-        f"💵 *Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n\n"
+        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n\n"
         f"Order karne ke liye item ya deal ka naam send karein!"
     )
 
@@ -938,7 +937,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         return "Rozana dopehar 12:00 se raat 1:00 tak open hain."
 
     if any(k in text for k in ["payment", "payments", "pesay", "paise", "easypaisa", "easy paisa", "jazzcash", "jazz cash", "card", "online transfer", "account number"]):
-        return "Cash on Delivery aur Easypaisa (0341-5531083 — Rashid Naveed) dono accept karte hain."
+        return "Aap payment order receive karte waqt rider ko Cash de sakte hain."
 
     # 6. Parse Food Items (Pizzas, Deals 1-26, Burgers, Shawarma, Paratha Rolls, etc.)
     found_items = []
@@ -1417,7 +1416,8 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
 
     if ai_reply:
         # Strip out any legacy payment lines to keep template 100% clean and elegant
-        ai_reply = re.sub(r"\*?payment:\*?[^\n]+\n?", "", ai_reply, flags=re.IGNORECASE).strip()
+        ai_reply = re.sub(r"(?:💵\s*)?\*?payment\*?:?[^\n]+(?:\n|$)", "", ai_reply, flags=re.IGNORECASE).strip()
+        ai_reply = re.sub(r"(?:💵\s*)?\*?easypaisa\*?:?[^\n]+(?:\n|$)", "", ai_reply, flags=re.IGNORECASE).strip()
 
         try:
             # Check if order was confirmed with final receipt slip vs still asking for confirmation

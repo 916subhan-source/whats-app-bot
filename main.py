@@ -4,8 +4,10 @@ import re
 import asyncio
 from datetime import datetime
 from typing import Optional
+import csv
+import io
 from fastapi import FastAPI, Request, Query, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import httpx
 from dotenv import load_dotenv
@@ -13,7 +15,11 @@ from dotenv import load_dotenv
 from chatbot import process_message, get_kv, set_kv
 from menu import MENU_PAGES, MENU
 from voice import transcribe_whatsapp_voice
-from database import init_db, seed_menu_items, db_save_order, db_get_recent_orders, is_postgres
+from database import (
+    init_db, seed_menu_items, db_save_order, db_get_recent_orders, is_postgres,
+    db_create_pos_order, db_update_order_status, db_get_sales_analytics, db_seed_sample_orders
+)
+from pos_view import render_pos_html
 
 ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 load_dotenv(dotenv_path=ENV_PATH, override=True)
@@ -45,7 +51,8 @@ async def startup_event():
     try:
         init_db()
         seed_menu_items(MENU)
-        print(f"[STARTUP] Database initialized and synced ({'PostgreSQL' if is_postgres() else 'SQLite'})!")
+        db_seed_sample_orders()
+        print(f"[STARTUP] Database initialized, seeded, and synced ({'PostgreSQL' if is_postgres() else 'SQLite'})!")
     except Exception as e:
         print(f"[STARTUP WARN] DB initialization error: {e}")
 
@@ -503,6 +510,100 @@ async def handle_incoming_messages(data: dict):
         print(f"[ERROR] Error handling messages: {e}")
 
 # ─────────────────────────────────────────────
+# 💻 Point of Sale (POS) & Sales Management System
+# ─────────────────────────────────────────────
+@app.get("/pos", response_class=HTMLResponse, summary="Cherry Peri POS & Restaurant Sales Management Dashboard")
+async def pos_dashboard():
+    """Renders the comprehensive Cherry Peri Fast Food POS and daily/monthly sales management system."""
+    return HTMLResponse(content=render_pos_html(), status_code=200)
+
+@app.get("/api/menu", summary="Structured Menu for POS Terminal")
+async def get_pos_menu():
+    """Provides flat item list and structured categories for the POS counter terminal."""
+    flat_items = []
+    for cat_key, cat in MENU.items():
+        cat_name = cat.get("name", cat_key)
+        for item in cat.get("items", []):
+            if "prices" in item and isinstance(item["prices"], dict):
+                for sz, pr in item["prices"].items():
+                    flat_items.append({
+                        "id": f"{item['id']}_{sz}",
+                        "name": f"{item['name']} ({sz.title()})",
+                        "price": pr,
+                        "category": cat_key,
+                        "category_name": cat_name
+                    })
+            else:
+                flat_items.append({
+                    "id": item["id"],
+                    "name": item["name"],
+                    "price": item.get("price", 0),
+                    "category": cat_key,
+                    "category_name": cat_name
+                })
+    return {"categories": MENU, "items": flat_items}
+
+@app.get("/api/sales/stats", summary="Daily & Monthly Sales Analytics")
+async def get_sales_stats():
+    """Returns real-time sales KPI, 30-day trends, top items, and recent orders."""
+    return db_get_sales_analytics()
+
+@app.post("/api/pos/order", summary="Create POS Counter / Dine-in / Walk-in Order")
+async def create_pos_order(request: Request):
+    """Processes a new counter, dine-in, or takeaway order and integrates into sales stats."""
+    payload = await request.json()
+    order = db_create_pos_order(payload)
+    return {"status": "ok", "order_id": order.get("order_id"), "order": order}
+
+@app.post("/api/orders/{order_id:path}/status", summary="Update Kitchen Order Status")
+async def update_order_status(order_id: str, request: Request):
+    """Updates status: pending, preparing, out_for_delivery, completed, cancelled."""
+    import urllib.parse
+    clean_id = urllib.parse.unquote(order_id)
+    payload = await request.json()
+    new_status = payload.get("status")
+    if not new_status:
+        raise HTTPException(status_code=400, detail="Missing status field")
+    success = db_update_order_status(clean_id, new_status)
+    return {"status": "ok" if success else "failed", "order_id": clean_id, "new_status": new_status}
+
+@app.get("/api/sales/export", summary="Export All Sales Records to CSV")
+async def export_sales_csv():
+    """Generates and downloads an Excel-compatible CSV of all restaurant sales."""
+    from database import get_sqlite_connection
+    conn = get_sqlite_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT id, created_at, customer_name, customer_phone, order_type, address,
+               items_list, subtotal, delivery_fee, total, status, special_notes
+        FROM orders
+        ORDER BY created_at DESC;
+    """)
+    rows = cur.fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Order ID", "Date Time", "Customer Name", "Customer Phone", "Order Type",
+        "Delivery Address / Table", "Items Ordered", "Subtotal (Rs.)", "Delivery Fee (Rs.)",
+        "Total (Rs.)", "Status", "Special Notes"
+    ])
+    for r in rows:
+        writer.writerow([
+            r[0], r[1], r[2], r[3], r[4], r[5],
+            (r[6] or "").replace("\n", " | "), r[7], r[8], r[9], r[10], r[11]
+        ])
+
+    output.seek(0)
+    filename = f"cherry_peri_sales_{datetime.now().strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+# ─────────────────────────────────────────────
 # Routes
 # ─────────────────────────────────────────────
 @app.get("/orders", response_class=HTMLResponse, summary="Live Kitchen Orders Dashboard")
@@ -510,16 +611,22 @@ async def kitchen_orders_dashboard():
     orders = db_get_recent_orders(limit=50)
     rows_html = ""
     for o in orders:
+        note_badge = f"<div style='background: #78350f; color: #fde68a; padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 6px;'>📝 <strong>Note:</strong> {o.get('special_notes')}</div>" if o.get('special_notes') else ""
+        type_str = (o.get('order_type') or 'delivery').upper()
         rows_html += f"""
         <div style="background: #1e293b; border-radius: 12px; padding: 18px; margin-bottom: 16px; border-left: 5px solid #22c55e; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-weight: 800; font-size: 1.15rem; color: #38bdf8;">{o.get('order_id')}</span>
+                <div>
+                    <span style="font-weight: 800; font-size: 1.15rem; color: #38bdf8;">{o.get('order_id')}</span>
+                    <span style="background: #0284c7; color: #fff; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-weight: bold;">{type_str}</span>
+                </div>
                 <span style="color: #94a3b8; font-size: 0.85rem;">🕒 {o.get('timestamp')}</span>
             </div>
             <div style="color: #e2e8f0; margin-bottom: 6px; font-size: 0.95rem;"><strong>👤 Customer:</strong> {o.get('customer_name')} &nbsp;|&nbsp; <strong>📞 Phone:</strong> <a href="tel:{o.get('customer_phone')}" style="color: #38bdf8;">{o.get('customer_phone')}</a></div>
-            <div style="color: #e2e8f0; margin-bottom: 10px; font-size: 0.95rem;"><strong>📍 Delivery Address:</strong> {o.get('address')}</div>
-            <div style="background: #0f172a; padding: 12px; border-radius: 8px; color: #e2e8f0; font-family: -apple-system, sans-serif; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin-bottom: 10px; border: 1px solid #334155;">{o.get('slip')}</div>
-            <div style="color: #22c55e; font-weight: bold; font-size: 1.1rem;">💵 Total Bill: Rs. {o.get('total')} (Cash on Delivery)</div>
+            <div style="color: #e2e8f0; margin-bottom: 10px; font-size: 0.95rem;"><strong>📍 Location:</strong> {o.get('address')}</div>
+            <div style="background: #0f172a; padding: 12px; border-radius: 8px; color: #e2e8f0; font-family: -apple-system, sans-serif; white-space: pre-wrap; font-size: 0.9rem; line-height: 1.5; margin-bottom: 10px; border: 1px solid #334155;">{o.get('items_list') or o.get('slip')}</div>
+            {note_badge}
+            <div style="color: #22c55e; font-weight: bold; font-size: 1.1rem; margin-top: 8px;">💰 Total Bill: Rs. {o.get('total')}</div>
         </div>
         """
     if not rows_html:
@@ -533,14 +640,21 @@ async def kitchen_orders_dashboard():
     <meta http-equiv="refresh" content="10">
     <style>
         body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b1120; color: #f8fafc; margin: 0; padding: 20px; }}
-        .container {{ max-width: 720px; margin: 0 auto; }}
+        .container {{ max-width: 760px; margin: 0 auto; }}
         h1 {{ display: flex; align-items: center; justify-content: space-between; font-size: 1.4rem; border-bottom: 2px solid #1e293b; padding-bottom: 14px; margin-bottom: 20px; }}
         .badge {{ background: #22c55e; color: #022c22; font-size: 0.8rem; padding: 4px 10px; border-radius: 20px; font-weight: 700; letter-spacing: 0.5px; }}
+        .pos-btn {{ background: #e11d48; color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🍕 Cherry Peri Kitchen Orders <span class="badge">● Live Auto-Refresh (10s)</span></h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #1e293b; padding-bottom: 14px;">
+            <h1 style="margin: 0; border: none; padding: 0;">🍕 Cherry Peri Kitchen Orders</h1>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span class="badge">● Live Auto-Refresh</span>
+                <a href="/pos" class="pos-btn">🛒 Open POS & Sales</a>
+            </div>
+        </div>
         {rows_html}
     </div>
 </body>

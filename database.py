@@ -70,6 +70,8 @@ def init_db():
             total INTEGER DEFAULT 0,
             slip TEXT,
             status TEXT DEFAULT 'pending',
+            order_type TEXT DEFAULT 'delivery',
+            special_notes TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -87,6 +89,17 @@ def init_db():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
+
+    # Ensure schema migrations for SQLite
+    for migration_sql in [
+        "ALTER TABLE orders ADD COLUMN order_type TEXT DEFAULT 'delivery';",
+        "ALTER TABLE orders ADD COLUMN special_notes TEXT DEFAULT '';"
+    ]:
+        try:
+            cur.execute(migration_sql)
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -118,8 +131,13 @@ def init_db():
                     total INTEGER DEFAULT 0,
                     slip TEXT,
                     status VARCHAR(50) DEFAULT 'pending',
+                    order_type VARCHAR(50) DEFAULT 'delivery',
+                    special_notes TEXT DEFAULT '',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
+
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(50) DEFAULT 'delivery';
+                ALTER TABLE orders ADD COLUMN IF NOT EXISTS special_notes TEXT DEFAULT '';
 
                 CREATE TABLE IF NOT EXISTS customers (
                     phone VARCHAR(50) PRIMARY KEY,
@@ -217,18 +235,24 @@ def db_save_order(order_data: dict):
     delivery_fee = int(order_data.get("delivery_fee", 0))
     total = int(order_data.get("total", subtotal + delivery_fee))
     slip = order_data.get("slip", "")
+    status = order_data.get("status", "pending")
+    order_type = order_data.get("order_type", "delivery")
+    special_notes = order_data.get("special_notes", "")
 
     # SQLite
     conn = get_sqlite_connection()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO orders (id, customer_name, customer_phone, address, items_list, subtotal, delivery_fee, total, slip, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+        INSERT INTO orders (id, customer_name, customer_phone, address, items_list, subtotal, delivery_fee, total, slip, status, order_type, special_notes, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(id) DO UPDATE SET
             address=excluded.address,
             total=excluded.total,
-            slip=excluded.slip;
-    """, (oid, cname, cphone, addr, items_list, subtotal, delivery_fee, total, slip))
+            slip=excluded.slip,
+            status=excluded.status,
+            order_type=excluded.order_type,
+            special_notes=excluded.special_notes;
+    """, (oid, cname, cphone, addr, items_list, subtotal, delivery_fee, total, slip, status, order_type, special_notes))
 
     # Update Customer
     cur.execute("""
@@ -249,13 +273,16 @@ def db_save_order(order_data: dict):
             pg_conn = get_pg_connection()
             pg_cur = pg_conn.cursor()
             pg_cur.execute("""
-                INSERT INTO orders (id, customer_name, customer_phone, address, items_list, subtotal, delivery_fee, total, slip, status, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', CURRENT_TIMESTAMP)
+                INSERT INTO orders (id, customer_name, customer_phone, address, items_list, subtotal, delivery_fee, total, slip, status, order_type, special_notes, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                 ON CONFLICT(id) DO UPDATE SET
                     address=EXCLUDED.address,
                     total=EXCLUDED.total,
-                    slip=EXCLUDED.slip;
-            """, (oid, cname, cphone, addr, items_list, subtotal, delivery_fee, total, slip))
+                    slip=EXCLUDED.slip,
+                    status=EXCLUDED.status,
+                    order_type=EXCLUDED.order_type,
+                    special_notes=EXCLUDED.special_notes;
+            """, (oid, cname, cphone, addr, items_list, subtotal, delivery_fee, total, slip, status, order_type, special_notes))
 
             pg_cur.execute("""
                 INSERT INTO customers (phone, name, last_address, total_orders, last_active)
@@ -272,6 +299,192 @@ def db_save_order(order_data: dict):
         except Exception as e:
             print(f"[DB WARN] PostgreSQL order save error: {e}")
 
+def db_create_pos_order(order_data: dict) -> dict:
+    """Creates a counter / POS order and records it in the sales system."""
+    import random
+    oid = order_data.get("order_id") or f"#POS-{random.randint(1000, 9999)}"
+    cname = order_data.get("customer_name") or "Counter Customer"
+    cphone = order_data.get("customer_phone") or "-"
+    addr = order_data.get("address") or "Dine-in / Takeaway"
+    items_list = order_data.get("items_list") or ""
+    subtotal = int(order_data.get("subtotal", 0))
+    delivery_fee = int(order_data.get("delivery_fee", 0))
+    total = int(order_data.get("total", subtotal + delivery_fee))
+    special_notes = order_data.get("special_notes", "")
+    order_type = order_data.get("order_type", "counter")
+    status = order_data.get("status", "completed")
+
+    clean_slip = (
+        f"*CHERRY PERI FAST FOOD (POS)*\n"
+        f"Receipt {oid}\n"
+        f"────────────────────\n"
+        f"👤 Customer: {cname} | {cphone}\n"
+        f"📍 Order Type: {order_type.title()} ({addr})\n\n"
+        f"🍽️ Items:\n{items_list}\n"
+    )
+    if special_notes:
+        clean_slip += f"📝 Note: {special_notes}\n"
+    clean_slip += (
+        f"\n💰 Total: Rs. {total}\n"
+        f"────────────────────\n"
+        f"Thank you for dining with us!"
+    )
+
+    full_order = {
+        "order_id": oid,
+        "customer_name": cname,
+        "customer_phone": cphone,
+        "address": addr,
+        "items_list": items_list,
+        "subtotal": subtotal,
+        "delivery_fee": delivery_fee,
+        "total": total,
+        "slip": clean_slip,
+        "status": status,
+        "order_type": order_type,
+        "special_notes": special_notes
+    }
+    db_save_order(full_order)
+    return full_order
+
+def db_update_order_status(order_id: str, new_status: str) -> bool:
+    """Updates order status: pending, preparing, out_for_delivery, completed, cancelled."""
+    oid = order_id if order_id.startswith("#") else f"#{order_id}"
+    conn = get_sqlite_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE orders SET status = ? WHERE id = ? OR id = ?;", (new_status, order_id, oid))
+    affected = cur.rowcount
+    conn.commit()
+    conn.close()
+
+    if is_postgres():
+        try:
+            pg_conn = get_pg_connection()
+            pg_cur = pg_conn.cursor()
+            pg_cur.execute("UPDATE orders SET status = %s WHERE id = %s OR id = %s;", (new_status, order_id, oid))
+            pg_conn.commit()
+            pg_cur.close()
+            pg_conn.close()
+        except Exception:
+            pass
+
+    return affected > 0
+
+def db_get_sales_analytics() -> dict:
+    """Calculates daily, monthly, and overall sales metrics with daily trend charts."""
+    conn = get_sqlite_connection()
+    cur = conn.cursor()
+
+    # Overall totals
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0), COALESCE(AVG(total), 0) FROM orders WHERE status != 'cancelled';")
+    tot_row = cur.fetchone()
+    tot_orders = tot_row[0] or 0
+    tot_revenue = tot_row[1] or 0
+    avg_order = int(tot_row[2] or 0)
+
+    # Today's sales
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(created_at) = date('now') AND status != 'cancelled';")
+    tod_row = cur.fetchone()
+    today_orders = tod_row[0] or 0
+    today_revenue = tod_row[1] or 0
+
+    # Yesterday's sales
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(created_at) = date('now', '-1 day') AND status != 'cancelled';")
+    yest_row = cur.fetchone()
+    yest_orders = yest_row[0] or 0
+    yest_revenue = yest_row[1] or 0
+
+    # Current month's sales
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') AND status != 'cancelled';")
+    mon_row = cur.fetchone()
+    month_orders = mon_row[0] or 0
+    month_revenue = mon_row[1] or 0
+
+    # Daily breakdown for the last 30 days
+    cur.execute("""
+        SELECT date(created_at) as sale_date, COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
+        FROM orders
+        WHERE status != 'cancelled' AND created_at >= date('now', '-30 days')
+        GROUP BY date(created_at)
+        ORDER BY sale_date ASC;
+    """)
+    daily_rows = [dict(r) for r in cur.fetchall()]
+
+    # Orders status breakdown
+    cur.execute("SELECT status, COUNT(*) as count FROM orders GROUP BY status;")
+    status_counts = {r["status"]: r["count"] for r in cur.fetchall()}
+
+    # Recent orders
+    cur.execute("""
+        SELECT id as order_id, customer_name, customer_phone, address, items_list, total, status,
+               coalesce(order_type, 'delivery') as order_type,
+               coalesce(special_notes, '') as special_notes,
+               strftime('%d %b, %H:%M', created_at) as formatted_time
+        FROM orders
+        ORDER BY created_at DESC
+        LIMIT 100;
+    """)
+    recent_orders = [dict(r) for r in cur.fetchall()]
+
+    # Top items breakdown
+    item_counts = {}
+    import re
+    cur.execute("SELECT items_list FROM orders WHERE status != 'cancelled';")
+    for r in cur.fetchall():
+        txt = r[0] or ""
+        for m in re.finditer(r"(?:•|\*|-)\s*(\d+)x\s*([^\n—–\-]+)", txt):
+            qty = int(m.group(1))
+            iname = m.group(2).strip().replace("*", "")
+            item_counts[iname] = item_counts.get(iname, 0) + qty
+
+    top_items = sorted([{"name": k, "count": v} for k, v in item_counts.items()], key=lambda x: x["count"], reverse=True)[:8]
+
+    conn.close()
+
+    return {
+        "today_revenue": int(today_revenue),
+        "today_orders": int(today_orders),
+        "yesterday_revenue": int(yest_revenue),
+        "yesterday_orders": int(yest_orders),
+        "month_revenue": int(month_revenue),
+        "month_orders": int(month_orders),
+        "total_revenue": int(tot_revenue),
+        "total_orders": int(tot_orders),
+        "avg_order_value": avg_order,
+        "daily_breakdown": daily_rows,
+        "status_counts": status_counts,
+        "top_items": top_items,
+        "recent_orders": recent_orders
+    }
+
+def db_seed_sample_orders():
+    """Seeds initial sample orders if the table is empty so the POS dashboard shows rich sales data immediately."""
+    init_db()
+    conn = get_sqlite_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM orders;")
+    count = cur.fetchone()[0]
+    if count == 0:
+        import random
+        sample_data = [
+            ("Ali Khan", "0300-1234567", "Circular Road, Opp Stylo", "• 1x Deal 1 (1 Small Pizza + 1 Zinger + 1L Drink) — Rs. 800", 800, "Cheese kam", "completed", "delivery", "date('now', '-4 days')"),
+            ("Usman Tariq", "0333-9876543", "Cantt Area, D.I. Khan", "• 2x Zinger Burger (Regular) — Rs. 700\n• 1x Masala Fries — Rs. 250", 950, "Extra spicy", "completed", "delivery", "date('now', '-3 days')"),
+            ("Hamza Shah", "0345-5551234", "Muryali Chowk", "• 1x Deal 22 (2 Large Pizza + 1.5L Drink) — Rs. 2200", 2200, "", "completed", "delivery", "date('now', '-2 days')"),
+            ("Walk-in Customer", "-", "Table 4", "• 2x Zinger Burger (Special) — Rs. 540\n• 1x Loaded Fries — Rs. 600", 1140, "Garlic sauce", "completed", "dine_in", "date('now', '-1 day')"),
+            ("Zahid Malik", "0312-3334455", "Topanwala Bazar", "• 1x Deal 3 (2 Zinger + 2 Shawarma + 1L Drink) — Rs. 900", 900, "Kam sauce", "completed", "delivery", "date('now', '-1 day')"),
+            ("Subhan Sultan", "0332-5255879", "Naqshband Colony", "• 1x Deal 20 (1 Large Pizza + 1 Medium Pizza + 1.5L Drink) — Rs. 1900\n• 1x Chicken Paratha Roll — Rs. 300", 2200, "Kam sauce ke sath", "preparing", "delivery", "datetime('now', '-2 hours')"),
+            ("Bilal Ahmed", "0321-4455667", "Bannu Road, Grid Station", "• 1x Medium Tikka Pizza (Special) — Rs. 950\n• 1x Hot Wings (10 Pcs) — Rs. 460", 1410, "Extra crispy", "pending", "delivery", "datetime('now', '-15 minutes')")
+        ]
+        for name, phone, addr, items, tot, note, status, otype, dt_expr in sample_data:
+            oid = f"#FE-{random.randint(1000, 9999)}"
+            cur.execute(f"""
+                INSERT INTO orders (id, customer_name, customer_phone, address, items_list, subtotal, delivery_fee, total, slip, status, order_type, special_notes, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, {dt_expr});
+            """, (oid, name, phone, addr, items, tot, tot, f"Order {oid}\n{items}\nTotal: Rs. {tot}", status, otype, note))
+        conn.commit()
+        print("[DB] Seeded initial sample orders for POS dashboard!")
+    conn.close()
+
 def db_get_recent_orders(limit: int = 50) -> List[Dict[str, Any]]:
     """Fetches recent orders for the live kitchen dashboard."""
     if is_postgres():
@@ -281,6 +494,8 @@ def db_get_recent_orders(limit: int = 50) -> List[Dict[str, Any]]:
             pg_cur.execute("""
                 SELECT id as order_id, customer_name, customer_phone, address,
                        items_list, subtotal, delivery_fee, total, slip, status,
+                       coalesce(order_type, 'delivery') as order_type,
+                       coalesce(special_notes, '') as special_notes,
                        to_char(created_at, 'DD Mon YYYY, HH:MI AM') as timestamp
                 FROM orders
                 ORDER BY created_at DESC
@@ -299,6 +514,8 @@ def db_get_recent_orders(limit: int = 50) -> List[Dict[str, Any]]:
     cur.execute("""
         SELECT id as order_id, customer_name, customer_phone, address,
                items_list, subtotal, delivery_fee, total, slip, status,
+               coalesce(order_type, 'delivery') as order_type,
+               coalesce(special_notes, '') as special_notes,
                created_at as timestamp
         FROM orders
         ORDER BY created_at DESC
