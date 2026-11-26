@@ -320,6 +320,320 @@ def extract_clean_address(raw_text: str) -> str:
     cleaned = re.sub(r"\s+(?:pe|par|ko|mein|mai|par\s+bhej\s*do)$", "", cleaned, flags=re.IGNORECASE).strip()
     return cleaned or raw_text.strip()
 
+DEALS_PRICING_CATALOG = {
+    1: ("Deal 1 (1 Small Pizza + 1 Zinger Burger + 1L Drink)", 800),
+    2: ("Deal 2 (2 Chicken Shawarma + 2 Chicken Paratha Roll + 1L Drink)", 820),
+    3: ("Deal 3 (2 Zinger Burger + 2 Chicken Shawarma + 1L Drink)", 900),
+    4: ("Deal 4 (2 Zinger + 1 Omelette Burger + 1 Shawarma + 1L Drink)", 1000),
+    5: ("Deal 5 (10 Hot Wings + 10 Nuggets + 1L Drink)", 940),
+    6: ("Deal 6 (1 Small Pizza + 2 Zinger + 1 Zinger Shawarma + 1L Drink)", 1000),
+    7: ("Deal 7 (2 Small Pizza + 1L Drink)", 950),
+    8: ("Deal 8 (1 Medium Pizza + 1 Chapli Burger + 5 Nuggets + 1L Drink)", 1200),
+    9: ("Deal 9 (10 Nuggets + 2 Zinger Paratha + 2 Zinger Shawarma + 1L Drink)", 1400),
+    10: ("Deal 10 (1 Small Pizza + 1 Zinger + 10 Hot Wings + 1L Drink)", 1250),
+    11: ("Deal 11 (5 Zinger Burger + 1.5L Drink)", 1400),
+    12: ("Deal 12 (3 Zinger Burger + 3 Zinger Shawarma + 1L Drink)", 1500),
+    13: ("Deal 13 (2 Small Pizza + 5 Hot Wings + 1.5L Drink)", 1250),
+    14: ("Deal 14 (1 Medium Pizza + 10 Hot Wings + 5 Nuggets + 1L Drink)", 1450),
+    15: ("Deal 15 (2 Small Pizza + 2 Zinger Burger + 1.5L Drink)", 1520),
+    16: ("Deal 16 (2 Medium Pizza + 1L Drink)", 1550),
+    17: ("Deal 17 (5 Zinger Burger + 10 Hot Wings + 1L Drink)", 1850),
+    18: ("Deal 18 (1 Large Pizza + 1 Zinger + 1 Shawarma + 5 Wings + 1.5L Drink)", 1900),
+    19: ("Deal 19 (1 Large Pizza + 1 Zinger Paratha + 10 Wings + 1.5L Drink)", 1900),
+    20: ("Deal 20 (1 Large Pizza + 1 Medium Pizza + 1.5L Drink)", 1900),
+    21: ("Deal 21 (1 Zinger Burger + Fries + 1 Regular Drink)", 400),
+    22: ("Deal 22 (2 Large Pizza + 1.5L Drink)", 2200),
+    23: ("Deal 23 (1 Small Pizza + 1 Medium Pizza + 1.5L Drink)", 1250),
+    24: ("Deal 24 (1 Large Pizza + 10 Hot Wings + 10 Nuggets + 1.5L Drink)", 2000),
+    25: ("Deal 25 (5 Zinger Shawarma + 10 Wings + 1.5L Drink)", 1600),
+    26: ("Deal 26 (5 Zinger Shawarma + 1.5L Drink)", 1180),
+}
+
+def analyze_item_price_and_calc(text: str) -> Optional[str]:
+    """Analyzes customer inquiry for specific item prices, missing menu items, or multiplied quantities."""
+    clean = text.lower().strip()
+
+    # 1. Chicken Tikka BBQ Leg / Breast Piece Check (Politely clarify fast food menu items)
+    if any(k in clean for k in ["leg", "breast", "bbq tikka", "tikka piece", "chicken piece"]) and "zinger piece" not in clean:
+        return (
+            "Hamare paas standalone BBQ Chicken Tikka (Leg/Breast piece) nahi hai.\n\n"
+            "Lekin Chicken Tikka mein ye items available hain:\n"
+            "• Tikka Paratha Roll — Rs. 320\n"
+            "• Tikka Shawarma — Regular Rs. 300 / Special Rs. 250\n"
+            "• Tikka Boti Wrap — Rs. 400\n"
+            "• Chicken Tikka Pizza — Small Rs. 450 | Medium Rs. 750 | Large Rs. 1,100 | Family Rs. 1,700\n"
+            "• Crispy Zinger Piece — Rs. 180\n\n"
+            "Order karne ke liye item ka naam send karein!"
+        )
+
+    # 2. Check if this is an explicit price or quantity bill inquiry
+    is_price_q = (
+        any(k in clean for k in [
+            "price", "rate", "rates", "kitne ka", "kitne ki", "kitne ke", "kitnay ka",
+            "kitnay ki", "kitnay ke", "kitna hai", "kitni hai", "kitne hain", "kitne hein",
+            "kitne banenge", "kitna banega", "ka bill", "ki total", "total kitna", "cost", "bhao"
+        ])
+        or bool(re.search(r"\b(?:kitne|kitna|kitnay|price|rate|rates|bhao)\b", clean))
+    )
+
+    if not is_price_q:
+        return None
+
+    # 3. Check Amazing Deals 1 to 26
+    deal_m = re.search(r"\b(?:deal|del|d)\s*(?:no\.?|number)?\s*(\d{1,2})\b", clean) or re.search(r"\b(\d{1,2})\s*(?:number|no\.?)?\s*deal\b", clean)
+    if deal_m:
+        d_num = int(deal_m.group(1))
+        if d_num in DEALS_PRICING_CATALOG:
+            d_name, d_price = DEALS_PRICING_CATALOG[d_num]
+            clean_wo_deal = re.sub(r"\b(?:deal|del|d)\s*(?:no\.?|number)?\s*" + str(d_num) + r"\b", "", clean)
+            qty = 1
+            q_m = re.search(r"\b(\d+)\b", clean_wo_deal)
+            if q_m:
+                qty = int(q_m.group(1))
+            elif any(w in clean_wo_deal for w in ["do ", " do", "two"]):
+                qty = 2
+            elif any(w in clean_wo_deal for w in ["teen ", " teen", "three"]):
+                qty = 3
+            elif any(w in clean_wo_deal for w in ["char ", " char", "four"]):
+                qty = 4
+            elif any(w in clean_wo_deal for w in ["panch ", " panch", "five"]):
+                qty = 5
+
+            if qty > 1:
+                total = d_price * qty
+                return f"{qty}x {d_name} (Rs. {d_price:,} each) ka total bill Rs. {total:,} banega. Order karne ke liye address bhejein!"
+            return f"{d_name} ki price Rs. {d_price:,} hai."
+
+    # 4. Extract quantity for Ala-Carte items
+    qty = 1
+    q_m = re.search(r"\b(\d+)\s*(?:x\s*)?(?:piece|pcs|burger|burgers|pizza|pizzas|shawarma|roll|wrap|pasta|fries|wings|nuggets)?\b", clean)
+    if q_m:
+        val = int(q_m.group(1))
+        if val not in [6, 9, 11, 13, 17] or any(w in clean for w in ["burger", "shawarma", "roll", "wrap", "wing", "nugget", "piece", "pasta", "sandwich"]):
+            qty = val
+    elif any(w in clean for w in ["do ", "2 ", " 2", "two "]):
+        qty = 2
+    elif any(w in clean for w in ["teen ", "3 ", " 3", "three "]):
+        qty = 3
+    elif any(w in clean for w in ["char ", "4 ", " 4", "four "]):
+        qty = 4
+    elif any(w in clean for w in ["panch ", "5 ", " 5", "five "]):
+        qty = 5
+    elif any(w in clean for w in ["das ", "10 ", " 10", "ten "]):
+        qty = 10
+
+    # 5. Fast Food Items (Burgers, Shawarmas, Rolls, Wraps, Pastas, Sandwiches, Fries, Wings)
+    if "zinger piece" in clean or clean in ["piece kitne ka hai", "chicken piece kitne ka hai"]:
+        price = 180
+        if qty > 1:
+            return f"{qty}x Zinger Piece (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+        return f"Zinger Piece ki price Rs. {price} hai."
+
+    if "double decker" in clean:
+        reg_p, sp_p = 500, 450
+        if qty > 1:
+            return f"{qty}x Double Decker Zinger ka total: Regular (Rs. {reg_p} each) Rs. {reg_p * qty:,} aur Special (Rs. {sp_p} each) Rs. {sp_p * qty:,} banega."
+        return f"Double Decker Zinger Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "jaddah" in clean and "zinger" in clean:
+        price = 500
+        if qty > 1:
+            return f"{qty}x Jaddah Special Zinger (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+        return f"Jaddah Special Zinger Burger ki price Rs. {price} hai."
+
+    if "zinger burger" in clean or ("zinger" in clean and "burger" in clean) or clean == "zinger kitne ka hai":
+        reg_p, sp_p = 350, 270
+        if qty > 1:
+            return f"{qty}x Zinger Burger ka total: Regular (Rs. {reg_p} each) Rs. {reg_p * qty:,} aur Special (Rs. {sp_p} each) Rs. {sp_p * qty:,} banega."
+        return f"Zinger Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "pizza burger" in clean:
+        reg_p, sp_p = 400, 350
+        if qty > 1:
+            return f"{qty}x Pizza Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Pizza Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "chicken anda" in clean:
+        reg_p, sp_p = 320, 260
+        if qty > 1:
+            return f"{qty}x Chicken Anda Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Chicken Anda Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "chicken omelette" in clean:
+        price = 260
+        if qty > 1:
+            return f"{qty}x Chicken Omelette Burger (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+        return f"Chicken Omelette Burger ki price Rs. {price} hai."
+
+    if "double anda" in clean:
+        reg_p, sp_p = 270, 220
+        if qty > 1:
+            return f"{qty}x Double Anda Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Double Anda Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "chicken burger" in clean:
+        reg_p, sp_p = 270, 220
+        if qty > 1:
+            return f"{qty}x Chicken Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Chicken Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "chapli" in clean or "chapali" in clean:
+        reg_p, sp_p = 250, 200
+        if qty > 1:
+            return f"{qty}x Chapli Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Chapli Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "patty burger" in clean:
+        reg_p, sp_p = 250, 200
+        if qty > 1:
+            return f"{qty}x Patty Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Patty Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "anda shami" in clean or "shami burger" in clean:
+        reg_p, sp_p = 200, 150
+        if qty > 1:
+            return f"{qty}x Anda Shami Burger ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Anda Shami Burger: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    # Shawarmas
+    if "zinger platter" in clean:
+        price = 450
+        if qty > 1:
+            return f"{qty}x Zinger Platter Shawarma ka total Rs. {price * qty:,} banega."
+        return f"Zinger Platter Shawarma ki price Rs. {price} hai."
+
+    if "chicken platter" in clean or "platter shawarma" in clean:
+        price = 400
+        if qty > 1:
+            return f"{qty}x Chicken Platter Shawarma ka total Rs. {price * qty:,} banega."
+        return f"Chicken Platter Shawarma ki price Rs. {price} hai."
+
+    if "zinger shawarma" in clean:
+        reg_p, sp_p = 300, 220
+        if qty > 1:
+            return f"{qty}x Zinger Shawarma ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Zinger Shawarma: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "tikka shawarma" in clean:
+        reg_p, sp_p = 300, 250
+        if qty > 1:
+            return f"{qty}x Tikka Shawarma ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Tikka Shawarma: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "malai boti shawarma" in clean:
+        reg_p, sp_p = 300, 250
+        if qty > 1:
+            return f"{qty}x Malai Boti Shawarma ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Malai Boti Shawarma: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "single kabab shawarma" in clean:
+        reg_p, sp_p = 190, 140
+        if qty > 1:
+            return f"{qty}x Single Kabab Shawarma ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Single Kabab Shawarma: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "chicken shawarma" in clean or (clean.startswith("shawarma") and "zinger" not in clean):
+        reg_p, sp_p = 200, 150
+        if qty > 1:
+            return f"{qty}x Chicken Shawarma ka total: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Chicken Shawarma: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    # Paratha Rolls
+    if "tikka paratha" in clean or "tikka roll" in clean:
+        price = 320
+        if qty > 1:
+            return f"{qty}x Tikka Paratha Roll (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+        return f"Tikka Paratha Roll ki price Rs. {price} hai."
+
+    if "malai boti paratha" in clean or "malai paratha" in clean:
+        price = 350
+        if qty > 1:
+            return f"{qty}x Malai Boti Paratha Roll (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+        return f"Malai Boti Paratha Roll ki price Rs. {price} hai."
+
+    if "zinger paratha" in clean or "zinger roll" in clean:
+        reg_p, sp_p = 350, 270
+        if qty > 1:
+            return f"{qty}x Zinger Paratha Roll: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Zinger Paratha Roll: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "chicken paratha" in clean or "paratha roll" in clean:
+        reg_p, sp_p = 300, 230
+        if qty > 1:
+            return f"{qty}x Chicken Paratha Roll: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Chicken Paratha Roll: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    if "pizza paratha" in clean:
+        price = 500
+        if qty > 1:
+            return f"{qty}x Pizza Paratha (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+        return f"Pizza Paratha ki price Rs. {price} hai."
+
+    if "shapata" in clean or "shahi roll" in clean:
+        reg_p, sp_p = 500, 450
+        if qty > 1:
+            return f"{qty}x Shapata / Shahi Roll: Regular Rs. {reg_p * qty:,} aur Special Rs. {sp_p * qty:,} banega."
+        return f"Shapata / Shahi Roll: Regular Rs. {reg_p} aur Special Rs. {sp_p} hai."
+
+    # Wings & Nuggets
+    if "hot wings" in clean or "wings" in clean:
+        p10, p5 = 460, 250
+        return f"Hot Wings ki price: 10 Pcs Rs. {p10} aur 5 Pcs Rs. {p5} hai."
+
+    if "nuggets" in clean:
+        p10, p5 = 400, 200
+        return f"Nuggets ki price: 10 Pcs Rs. {p10} aur 5 Pcs Rs. {p5} hai."
+
+    # Pastas
+    if "pasta" in clean:
+        return "Pastas: Chicken Cheese Pasta (Small Rs. 400 / Large Rs. 500) aur Crunchy Pasta (Small Rs. 450 / Large Rs. 550) hai."
+
+    # Sandwiches
+    if "sandwich" in clean:
+        return "Sandwiches: Chicken Cheese Sandwich (Rs. 300), Club Sandwich (Rs. 300), Grill Sandwich (Rs. 350) aur Anda Sandwich (Rs. 150) hai."
+
+    # Fries
+    if "fries" in clean:
+        return "Fries: French Fries (Small Rs. 200 / Large Rs. 400), Masala Fries (Small Rs. 250 / Large Rs. 450), Cheese Fries (Small Rs. 350 / Large Rs. 400) aur Loaded Fries (Small Rs. 400 / Large Rs. 600) hai."
+
+    # Pizzas
+    if "pizza" in clean:
+        if "small" in clean or "chota" in clean:
+            price = 450
+            if qty > 1:
+                return f"{qty}x Small Pizza ka total: Regular (Rs. {price} each) Rs. {price * qty:,} aur Special (Rs. 600 each) Rs. {600 * qty:,} banega."
+            return "Small Pizza: Regular Rs. 450 aur Special Rs. 600 hai."
+        if "medium" in clean or "darmiyana" in clean:
+            price = 750
+            if qty > 1:
+                return f"{qty}x Medium Pizza ka total: Regular (Rs. {price} each) Rs. {price * qty:,} aur Special (Rs. 950 each) Rs. {950 * qty:,} banega."
+            return "Medium Pizza: Regular Rs. 750 aur Special Rs. 950 hai."
+        if "large" in clean or "bada" in clean:
+            price = 1100
+            if qty > 1:
+                return f"{qty}x Large Pizza ka total: Regular (Rs. {price} each) Rs. {price * qty:,} aur Special (Rs. 1,300 each) Rs. {1300 * qty:,} banega."
+            return "Large Pizza: Regular Rs. 1,100 aur Special Rs. 1,300 hai."
+        if "family" in clean:
+            price = 1700
+            if qty > 1:
+                return f"{qty}x Family Pizza ka total: Regular (Rs. {price} each) Rs. {price * qty:,} aur Special (Rs. 2,000 each) Rs. {2000 * qty:,} banega."
+            return "Family Pizza: Regular Rs. 1,700 aur Special Rs. 2,000 hai."
+        if "square" in clean:
+            price = 1050
+            if qty > 1:
+                return f"{qty}x Square Pizza (Rs. {price} each) ka total Rs. {price * qty:,} banega."
+            return f"Square Pizza ki price Rs. {price} hai."
+        return (
+            "Pizzas ki prices (Any Flavor):\n"
+            "• Small (6\"): Regular Rs. 450 | Special Rs. 600\n"
+            "• Medium (9\"): Regular Rs. 750 | Special Rs. 950\n"
+            "• Large (11\"): Regular Rs. 1,100 | Special Rs. 1,300\n"
+            "• Family (17\"): Regular Rs. 1,700 | Special Rs. 2,000\n"
+            "• Square Pizza: Rs. 1,050"
+        )
+
+    return None
+
 async def generate_human_fallback(phone_number: str, message_text: str, customer_name: str = "Customer"):
     text = message_text.lower().strip()
     cart = await get_cart(phone_number)
@@ -334,16 +648,21 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     if any(text == g or text.startswith(f"{g} ") or text.endswith(f" {g}") for g in greetings):
         return f"Assalam-o-Alaikum {customer_name}! Cherry Peri Fast Food mein khush amdeed. Aaj kya mangwayein ge aap?"
 
-    # 2. Menu request / Food list inquiry ("kia kia cheezen hain", "menu", "kya hai", "rate list")
+    # 2. Specific Item Price & Large Quantity Math Inquiries
+    # (e.g. "Chicken Tikka (Leg/Breast ki price", "deal 21 ki price", "5 zinger burgers kitne ke hain")
+    price_reply = analyze_item_price_and_calc(text)
+    if price_reply:
+        return price_reply
+
+    # 3. Generic Menu Request / Food List Inquiry
     menu_inquiry_patterns = [
         r"\b(?:menu|mainue|manu|card|catalog|catalogue|rate\s*list|price\s*list)\b",
-        r"\b(?:tasveer|tasweer|picture|pictures|pics|pic|photos)\b",
+        r"\b(?:tasveer|tasweer|picture|pictures|pics|pic|photos|photo)\b",
         r"\b(?:kya|kia)\s+.*(?:cheezen|cheezain|cheezein|chizen|chizain|cheez|items|khana)\b",
-        r"\b(?:cheezen|cheez ain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
+        r"\b(?:cheezen|cheezain|cheezein|chizen|chizain)\s+.*(?:hain|hein|kya|kia)\b",
         r"\b(?:kya|kia)\s+(?:kya|kia|hai|hay|kuch|options|milta)\b",
         r"\b(?:kya|kia)\s+available\b",
         r"\b(?:show|send|bhejo|bhejein|dikhao|dikhayein)\s+.*(?:menu|list|card|rates)\b",
-        r"\b(?:rate|rates|price|prices)\s+.*(?:kya|kia|batao|batayein)\b"
     ]
     is_menu_inquiry = (
         any(bool(re.search(pat, text)) for pat in menu_inquiry_patterns)
@@ -352,45 +671,39 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
     if is_menu_inquiry:
         return get_human_menu_text()
 
-    # 3. Specific Category Inquiries (Deals, Pizzas, Burgers, Delivery Charges)
+    # 4. Category Overview Inquiries
     if any(k in text for k in ["koi deal", "deals kya", "deals batao", "special deals", "deal konsi", "konsi deal", "viral deal"]):
         return (
-            "🌟 *Cherry Peri — Special Deals:*\n\n"
-            "1️⃣ *Student Viral Deal* — *Rs. 899*\n"
-            "   • 1x 6\" Personal Pizza\n"
-            "   • 1x Classic Zinger Burger + Fries\n"
-            "   • 1x 345ml Cold Drink\n\n"
-            "2️⃣ *Family Viral King Deal* — *Rs. 2,499*\n"
-            "   • 1x 9\" Medium Pizza\n"
-            "   • 4 Pcs Crispy Broast + Large Fries\n"
-            "   • 1x 1.5 Ltr Cold Drink\n\n"
-            "Order karne ke liye *Student Deal* ya *Family Deal* likhein! 😊"
+            "🌟 *Cherry Peri — Amazing Deals (1 to 26):*\n\n"
+            "• *Deal 1* (Rs. 800): 1 Small Pizza + 1 Zinger Burger + 1L Drink\n"
+            "• *Deal 3* (Rs. 900): 2 Zinger Burger + 2 Chicken Shawarma + 1L Drink\n"
+            "• *Deal 11* (Rs. 1,400): 5 Zinger Burger + 1.5L Drink\n"
+            "• *Deal 21* (Rs. 400): 1 Zinger Burger + Fries + 1 Regular Drink\n"
+            "• *Deal 22* (Rs. 2,200): 2 Large Pizza + 1.5L Drink\n\n"
+            "Deals 1 se 26 ki complete photos dekhne ke liye *deals photo* likhein!"
         )
 
     if any(k in text for k in ["pizza flavors", "pizza flavor", "konsa pizza", "kaunsa pizza", "pizza options", "pizza menu", "pizza rates"]):
         return (
             "🍕 *Cherry Peri Pizza Flavors & Rates:*\n\n"
-            "🔥 *Regular Pizzas:*\n"
-            "• Chicken Tikka, Fajita, Tandoori, Hot N Spicy, Supreme, BBQ, Cheese Lover\n"
-            "  6\" Personal: Rs. 500 | 9\" Medium: Rs. 800 | 13\" Large: Rs. 1400 | 17\" XL: Rs. 1900\n\n"
-            "👑 *Special Pizzas:*\n"
-            "• Malai Boti, Cherry Peri Special, Bihari Kabab, Mughlai, Super Supreme\n"
-            "  6\" Personal: Rs. 600 | 9\" Medium: Rs. 950 | 13\" Large: Rs. 1600 | 17\" XL: Rs. 2100\n\n"
-            "Apna pasandeeda flavor aur size batayein (e.g. *Tikka 17* ya *Malai Boti Large*)!"
+            "🔥 *Regular Flavors:* Tikka, Fajita, Tandoori, BBQ, Hot N Spicy, Cheese Lover\n"
+            "  Small: Rs. 450 | Medium: Rs. 750 | Large: Rs. 1,100 | Family: Rs. 1,700\n\n"
+            "👑 *Special Flavors:* Malai Boti, Cherry Peri Special, Bihari Kabab\n"
+            "  Small: Rs. 600 | Medium: Rs. 950 | Large: Rs. 1,300 | Family: Rs. 2,000\n"
+            "• Square Pizza: Rs. 1,050"
         )
 
     if any(k in text for k in ["burger menu", "burgers kya", "konsa burger", "burger options"]):
         return (
-            "🍔 *Cherry Peri Burgers & Sandwiches:*\n\n"
-            "• Simple Zinger — Rs. 250\n"
-            "• Zinger Burger with Cheese — Rs. 300\n"
-            "• Afghani Burger — Rs. 350\n"
-            "• Classic Zinger + Fries — Rs. 450\n"
-            "• Cheese Zinger + Fries — Rs. 500\n"
-            "• Chicken Grill Burger + Fries — Rs. 550\n"
-            "• Mighty Zinger + Fries — Rs. 600\n"
-            "• Cherry Peri Special Grill + Fries — Rs. 700\n\n"
-            "Order karne ke liye burger ka naam batayein!"
+            "🍔 *Cherry Peri Burgers:*\n\n"
+            "• Zinger Burger: Regular Rs. 350 | Special Rs. 270\n"
+            "• Double Decker Zinger: Regular Rs. 500 | Special Rs. 450\n"
+            "• Jaddah Special Zinger: Rs. 500\n"
+            "• Chicken Anda Burger: Regular Rs. 320 | Special Rs. 260\n"
+            "• Double Anda Burger: Regular Rs. 270 | Special Rs. 220\n"
+            "• Chicken Burger: Regular Rs. 270 | Special Rs. 220\n"
+            "• Chapli Burger: Regular Rs. 250 | Special Rs. 200\n"
+            "• Anda Shami Burger: Regular Rs. 200 | Special Rs. 150"
         )
 
     if any(k in text for k in ["delivery charges", "delivery fee", "rider charges", "delivery free", "free delivery", "delivery kitni"]):
@@ -801,6 +1114,19 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
 
 async def should_send_menu_pictures(phone_number: str, message_text: str) -> bool:
     clean = message_text.lower().strip()
+
+    # 0. Do NOT send menu pictures if customer is inquiring about a specific item's price or quantity math
+    is_price_q = (
+        any(k in clean for k in ["price", "rate", "rates", "kitne", "kitna", "kitni", "kitnay", "cost", "bhao"])
+        or bool(re.search(r"\b(?:kitne|kitna|kitnay|price|rate)\b", clean))
+    )
+    has_specific_item = any(k in clean for k in [
+        "tikka", "burger", "pizza", "deal", "zinger", "shawarma", "broast", "wings",
+        "fries", "pasta", "sandwich", "roll", "wrap", "nuggets", "paratha", "leg", "breast",
+        "piece", "shami", "anda", "chapli", "patty"
+    ])
+    if is_price_q and has_specific_item:
+        return False
 
     # 1. Explicit menu / food list inquiries (Always send pictures!)
     menu_inquiry_patterns = [
