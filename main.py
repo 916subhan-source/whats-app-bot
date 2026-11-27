@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from chatbot import process_message, get_kv, set_kv
 from menu import MENU_PAGES, MENU
-from voice import transcribe_whatsapp_voice
+from voice import transcribe_whatsapp_voice, transcribe_audio_bytes, download_evolution_media
 from database import (
     init_db, seed_menu_items, db_save_order, db_get_recent_orders, is_postgres,
     db_create_pos_order, db_update_order_status, db_get_sales_analytics, db_seed_sample_orders
@@ -406,6 +406,21 @@ async def handle_incoming_messages(data: dict):
                 incoming_text = msg_obj["extendedTextMessage"].get("text", "")
             elif "imageMessage" in msg_obj:
                 incoming_text = msg_obj["imageMessage"].get("caption", "")
+            elif "audioMessage" in msg_obj:
+                print(f"[AUDIO EVO] Voice note received from {customer_name} ({from_number})")
+                audio_bytes = await download_evolution_media(evo_data)
+                if audio_bytes:
+                    incoming_text = await transcribe_audio_bytes(audio_bytes, "audio/ogg")
+                    if not incoming_text or not incoming_text.strip():
+                        await send_whatsapp_message(
+                            from_number,
+                            f"Assalam-o-Alaikum {customer_name}! Aapka voice message theek se sunai nahi diya. Please dobara voice bhejein ya likh kar bata dein."
+                        )
+                        return
+                    print(f"[VOICE CONVERTED EVO] Text: \"{incoming_text}\"")
+                else:
+                    print(f"[AUDIO EVO ERROR] Could not retrieve audio bytes from Evolution API.")
+                    return
 
             if not incoming_text.strip():
                 return
