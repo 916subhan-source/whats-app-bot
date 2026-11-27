@@ -239,7 +239,7 @@ async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_n
         "contents": contents,
         "generationConfig": {
             "temperature": 0.7,
-            "maxOutputTokens": 600
+            "maxOutputTokens": 1200
         }
     }
 
@@ -300,12 +300,11 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
         endpoint = f"{endpoint}/v1"
     url = f"{endpoint}/chat/completions"
 
-    # Try ultra-fast models first (benchmarked live on your VPS FreeLLMAPI)
+    # Try ultra-fast, high-capacity models first (benchmarked live on your VPS FreeLLMAPI)
     models_to_try = [
-        os.getenv("AI_MODEL_NAME", "gemini-3.1-flash-lite"),
+        os.getenv("AI_MODEL_NAME", "gemini-3.5-flash-lite"),
         "gemini-flash-lite",
-        "gemini-3.5-flash-lite",
-        "gpt-5.4-mini"
+        "qwen3.8-flash"
     ]
 
     client = get_http_client()
@@ -320,10 +319,10 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
             "model": model,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 500
+            "max_tokens": 1200
         }
         try:
-            response = await client.post(url, json=payload, headers=headers, timeout=7.0)
+            response = await client.post(url, json=payload, headers=headers, timeout=8.0)
             if response.status_code == 200:
                 data = response.json()
                 if "choices" in data and len(data["choices"]) > 0:
@@ -461,7 +460,8 @@ def get_human_menu_text() -> str:
         f"  • Chicken Shawarma: Rs. 200 (Reg) / Rs. 150 (Special)\n"
         f"  • Zinger Shawarma: Rs. 300 (Reg) / Rs. 220 (Special)\n"
         f"  • Zinger Paratha Roll: Rs. 350 (Reg) / Rs. 270 (Special)\n\n"
-        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n\n"
+        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n"
+        f"💵 *Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n\n"
         f"Order karne ke liye item ya deal ka naam send karein!"
     )
 
@@ -937,7 +937,7 @@ async def generate_human_fallback(phone_number: str, message_text: str, customer
         return "Rozana dopehar 12:00 se raat 1:00 tak open hain."
 
     if any(k in text for k in ["payment", "payments", "pesay", "paise", "easypaisa", "easy paisa", "jazzcash", "jazz cash", "card", "online transfer", "account number"]):
-        return "Aap payment order receive karte waqt rider ko Cash de sakte hain."
+        return "Cash on Delivery aur Easypaisa (0341-5531083 — Rashid Naveed) dono accept karte hain."
 
     # 6. Parse Food Items (Pizzas, Deals 1-26, Burgers, Shawarma, Paratha Rolls, etc.)
     found_items = []
@@ -1416,8 +1416,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
 
     if ai_reply:
         # Strip out any legacy payment lines to keep template 100% clean and elegant
-        ai_reply = re.sub(r"(?:💵\s*)?\*?payment\*?:?[^\n]+(?:\n|$)", "", ai_reply, flags=re.IGNORECASE).strip()
-        ai_reply = re.sub(r"(?:💵\s*)?\*?easypaisa\*?:?[^\n]+(?:\n|$)", "", ai_reply, flags=re.IGNORECASE).strip()
+        ai_reply = re.sub(r"\*?payment:\*?[^\n]+\n?", "", ai_reply, flags=re.IGNORECASE).strip()
 
         try:
             # Check if order was confirmed with final receipt slip vs still asking for confirmation
