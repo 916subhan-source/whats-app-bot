@@ -372,6 +372,7 @@ def db_update_order_status(order_id: str, new_status: str) -> bool:
 
 def db_get_sales_analytics() -> dict:
     """Calculates daily, monthly, and overall sales metrics with daily trend charts."""
+    init_db()
     conn = get_sqlite_connection()
     cur = conn.cursor()
 
@@ -414,6 +415,15 @@ def db_get_sales_analytics() -> dict:
     cur.execute("SELECT status, COUNT(*) as count FROM orders GROUP BY status;")
     status_counts = {r["status"]: r["count"] for r in cur.fetchall()}
 
+    # Channel / order_type breakdown (WhatsApp vs Counter vs Dine-in)
+    cur.execute("""
+        SELECT COALESCE(order_type, 'delivery') as otype, COUNT(*) as count, COALESCE(SUM(total), 0) as revenue
+        FROM orders
+        WHERE status != 'cancelled'
+        GROUP BY COALESCE(order_type, 'delivery');
+    """)
+    channel_stats = {r["otype"]: {"count": r["count"], "revenue": int(r["revenue"])} for r in cur.fetchall()}
+
     # Recent orders
     cur.execute("""
         SELECT id as order_id, customer_name, customer_phone, address, items_list, total, status,
@@ -453,6 +463,7 @@ def db_get_sales_analytics() -> dict:
         "avg_order_value": avg_order,
         "daily_breakdown": daily_rows,
         "status_counts": status_counts,
+        "channel_stats": channel_stats,
         "top_items": top_items,
         "recent_orders": recent_orders
     }
