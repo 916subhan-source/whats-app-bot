@@ -370,43 +370,43 @@ async def handle_incoming_messages(data: dict):
             evo_data = data.get("data", {})
             key = evo_data.get("key", {})
             remote_jid = key.get("remoteJid", "")
+            remote_jid_alt = key.get("remoteJidAlt", "")
+            from_me = key.get("fromMe", False)
 
-            # Filter out non-private chats (group chats, broadcast status)
-            if not remote_jid.endswith("@s.whatsapp.net"):
+            # Never reply to messages sent by ourselves
+            if from_me:
                 return
 
-            from_number = remote_jid.split("@")[0]
+            # Filter out group chats (@g.us) and status broadcasts
+            if remote_jid.endswith("@g.us") or remote_jid == "status@broadcast" or remote_jid_alt.endswith("@g.us"):
+                return
+
+            # Resolve actual customer phone number (handles both standard @s.whatsapp.net and modern @lid)
+            from_number = ""
+            if remote_jid_alt and "@s.whatsapp.net" in remote_jid_alt:
+                from_number = remote_jid_alt.split("@")[0]
+            elif "@s.whatsapp.net" in remote_jid:
+                from_number = remote_jid.split("@")[0]
+            elif remote_jid_alt:
+                from_number = remote_jid_alt.split("@")[0]
+            else:
+                from_number = remote_jid.split("@")[0]
+
             msg_id = key.get("id")
-            from_me = key.get("fromMe", False)
             customer_name = evo_data.get("pushName", "Customer")
 
-            # 🚨 Staff Manual Override: If staff sent message from phone, silence AI for 30 mins
-            if from_me:
-                if msg_id not in bot_dispatched_ids:
-                    from datetime import timedelta
-                    silence_until = datetime.now() + timedelta(minutes=30)
-                    staff_silenced_until[from_number] = silence_until
-                    print(f"[STAFF OVERRIDE] Staff messaged {from_number}. AI silenced for 30 mins (until {silence_until.strftime('%I:%M %p')}).")
-                return
-
-            # Check if this customer chat is currently silenced for staff
-            if from_number in staff_silenced_until:
-                if datetime.now() < staff_silenced_until[from_number]:
-                    print(f"[AI SILENT] Customer {from_number} messaged, but AI is silenced for human staff handling.")
-                    return
-                else:
-                    del staff_silenced_until[from_number]
-
-            # Extract text from Evolution message object
+            # Extract text or voice note from Evolution message object
             msg_obj = evo_data.get("message", {})
             incoming_text = ""
+            is_audio = ("audioMessage" in msg_obj) or (evo_data.get("messageType") in ("audioMessage", "pttMessage"))
+
             if "conversation" in msg_obj:
                 incoming_text = msg_obj["conversation"]
             elif "extendedTextMessage" in msg_obj:
                 incoming_text = msg_obj["extendedTextMessage"].get("text", "")
             elif "imageMessage" in msg_obj:
                 incoming_text = msg_obj["imageMessage"].get("caption", "")
-            elif "audioMessage" in msg_obj:
+            elif is_audio:
                 print(f"[AUDIO EVO] Voice note received from {customer_name} ({from_number})")
                 audio_bytes = await download_evolution_media(evo_data)
                 if audio_bytes:

@@ -55,7 +55,7 @@ async def download_evolution_media(evo_data: dict) -> Optional[bytes]:
                 headers={"apikey": key},
                 json={"message": evo_data, "convertToMp4": False}
             )
-            if res.status_code == 200:
+            if res.status_code in (200, 201):
                 data = res.json()
                 b64 = data.get("base64")
                 if b64:
