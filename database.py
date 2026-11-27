@@ -371,7 +371,7 @@ def db_update_order_status(order_id: str, new_status: str) -> bool:
     return affected > 0
 
 def db_get_sales_analytics() -> dict:
-    """Calculates daily, monthly, and overall sales metrics with daily trend charts."""
+    """Calculates daily, monthly, and overall sales metrics with trend comparison data."""
     init_db()
     conn = get_sqlite_connection()
     cur = conn.cursor()
@@ -401,6 +401,46 @@ def db_get_sales_analytics() -> dict:
     month_orders = mon_row[0] or 0
     month_revenue = mon_row[1] or 0
 
+    # Last month's sales (for month-over-month comparison)
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE strftime('%Y-%m', datetime(created_at, '+5 hours')) = strftime('%Y-%m', datetime('now', '+5 hours', '-1 month')) AND status != 'cancelled';")
+    last_mon_row = cur.fetchone()
+    last_month_orders = last_mon_row[0] or 0
+    last_month_revenue = last_mon_row[1] or 0
+
+    # This week's sales (last 7 days)
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(datetime(created_at, '+5 hours')) >= date(datetime('now', '+5 hours', '-6 days')) AND status != 'cancelled';")
+    week_row = cur.fetchone()
+    week_orders = week_row[0] or 0
+    week_revenue = week_row[1] or 0
+
+    # Last week's sales (7-14 days ago)
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(datetime(created_at, '+5 hours')) >= date(datetime('now', '+5 hours', '-13 days')) AND date(datetime(created_at, '+5 hours')) < date(datetime('now', '+5 hours', '-6 days')) AND status != 'cancelled';")
+    last_week_row = cur.fetchone()
+    last_week_orders = last_week_row[0] or 0
+    last_week_revenue = last_week_row[1] or 0
+
+    # Hourly breakdown for today (peak hours analysis)
+    cur.execute("""
+        SELECT CAST(strftime('%H', datetime(created_at, '+5 hours')) AS INTEGER) as hour,
+               COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
+        FROM orders
+        WHERE date(datetime(created_at, '+5 hours')) = date(datetime('now', '+5 hours'))
+          AND status != 'cancelled'
+        GROUP BY hour ORDER BY hour;
+    """)
+    hourly_rows = [{"hour": r[0], "order_count": r[1], "revenue": int(r[2])} for r in cur.fetchall()]
+
+    # Weekly breakdown (last 14 days) for this-week vs last-week comparison
+    cur.execute("""
+        SELECT date(datetime(created_at, '+5 hours')) as sale_date,
+               COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
+        FROM orders
+        WHERE status != 'cancelled'
+          AND date(datetime(created_at, '+5 hours')) >= date(datetime('now', '+5 hours', '-13 days'))
+        GROUP BY sale_date ORDER BY sale_date ASC;
+    """)
+    weekly_rows = [{"sale_date": r[0], "order_count": r[1], "revenue": int(r[2])} for r in cur.fetchall()]
+
     # Daily breakdown for the last 30 days (Asia/Karachi UTC+5)
     cur.execute("""
         SELECT date(datetime(created_at, '+5 hours')) as sale_date, COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
@@ -409,13 +449,13 @@ def db_get_sales_analytics() -> dict:
         GROUP BY date(datetime(created_at, '+5 hours'))
         ORDER BY sale_date ASC;
     """)
-    daily_rows = [dict(r) for r in cur.fetchall()]
+    daily_rows = [{"sale_date": r[0], "order_count": r[1], "revenue": int(r[2])} for r in cur.fetchall()]
 
-    # Orders status breakdown
+    # Orders status breakdown (all, including cancelled for status donut)
     cur.execute("SELECT status, COUNT(*) as count FROM orders GROUP BY status;")
     status_counts = {r["status"]: r["count"] for r in cur.fetchall()}
 
-    # Channel / order_type breakdown (WhatsApp vs Counter vs Dine-in)
+    # Channel / order_type breakdown
     cur.execute("""
         SELECT COALESCE(order_type, 'delivery') as otype, COUNT(*) as count, COALESCE(SUM(total), 0) as revenue
         FROM orders
@@ -424,12 +464,12 @@ def db_get_sales_analytics() -> dict:
     """)
     channel_stats = {r["otype"]: {"count": r["count"], "revenue": int(r["revenue"])} for r in cur.fetchall()}
 
-    # Recent orders
+    # Recent orders (all, including cancelled - shown greyed out in ledger)
     cur.execute("""
         SELECT id as order_id, customer_name, customer_phone, address, items_list, total, status,
                coalesce(order_type, 'delivery') as order_type,
                coalesce(special_notes, '') as special_notes,
-               strftime('%d %b, %H:%M', created_at) as formatted_time
+               strftime('%d %b, %H:%M', datetime(created_at, '+5 hours')) as formatted_time
         FROM orders
         ORDER BY created_at DESC
         LIMIT 100;
@@ -442,12 +482,12 @@ def db_get_sales_analytics() -> dict:
     cur.execute("SELECT items_list FROM orders WHERE status != 'cancelled';")
     for r in cur.fetchall():
         txt = r[0] or ""
-        for m in re.finditer(r"(?:•|\*|-)\s*(\d+)x\s*([^\n—–\-]+)", txt):
+        for m in re.finditer(r"(?:\u2022|\*|-)\s*(\d+)x\s*([^\n\u2014\u2013\-]+)", txt):
             qty = int(m.group(1))
             iname = m.group(2).strip().replace("*", "")
             item_counts[iname] = item_counts.get(iname, 0) + qty
 
-    top_items = sorted([{"name": k, "count": v} for k, v in item_counts.items()], key=lambda x: x["count"], reverse=True)[:8]
+    top_items = sorted([{"name": k, "count": v} for k, v in item_counts.items()], key=lambda x: x["count"], reverse=True)[:10]
 
     conn.close()
 
@@ -458,10 +498,18 @@ def db_get_sales_analytics() -> dict:
         "yesterday_orders": int(yest_orders),
         "month_revenue": int(month_revenue),
         "month_orders": int(month_orders),
+        "last_month_revenue": int(last_month_revenue),
+        "last_month_orders": int(last_month_orders),
+        "week_revenue": int(week_revenue),
+        "week_orders": int(week_orders),
+        "last_week_revenue": int(last_week_revenue),
+        "last_week_orders": int(last_week_orders),
         "total_revenue": int(tot_revenue),
         "total_orders": int(tot_orders),
         "avg_order_value": avg_order,
         "daily_breakdown": daily_rows,
+        "weekly_breakdown": weekly_rows,
+        "hourly_breakdown": hourly_rows,
         "status_counts": status_counts,
         "channel_stats": channel_stats,
         "top_items": top_items,

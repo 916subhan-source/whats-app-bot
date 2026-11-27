@@ -221,47 +221,69 @@ def render_pos_html() -> str:
     </header>
 
     <!-- ───────────────────────────────────────────── -->
-    <!-- 💰 High-Contrast KPI Cards Bar -->
+    <!-- 💰 Smart KPI Cards with Trend Indicators -->
     <!-- ───────────────────────────────────────────── -->
     <div class="bg-slate-100/60 dark:bg-darkslate-900/60 border-b border-slate-200/80 dark:border-slate-800/80 px-4 sm:px-6 py-3.5 transition-colors">
-        <div class="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div class="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
 
-            <!-- Today's Revenue -->
-            <div class="bg-white dark:bg-darkslate-850 border border-emerald-500/20 dark:border-emerald-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
+            <!-- Today's Revenue with Trend -->
+            <div class="bg-white dark:bg-darkslate-850 border border-emerald-500/20 dark:border-emerald-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200 col-span-1">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
                         <span class="text-sm">💰</span>
-                        <span class="uppercase tracking-wider text-[11px]">Today's Sales</span>
+                        <span class="uppercase tracking-wider text-[11px]">Today</span>
                     </span>
-                    <span id="kpi-today-orders" class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
-                        0 orders
-                    </span>
+                    <span id="kpi-today-orders" class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">0 orders</span>
                 </div>
-                <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num tracking-tight" id="kpi-today-rev">
-                    Rs. 0
-                </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
-                    <span>Yesterday: <strong id="kpi-yest-rev" class="text-slate-700 dark:text-slate-300 font-mono-num font-bold">Rs. 0</strong></span>
-                    <span id="kpi-yest-orders" class="text-slate-500 dark:text-slate-400 font-mono-num">(0)</span>
+                <div class="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num tracking-tight" id="kpi-today-rev">Rs. 0</div>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">vs yesterday</span>
+                    <span id="kpi-today-trend" class="text-[11px] font-bold"></span>
                 </div>
             </div>
 
-            <!-- This Month's Revenue -->
+            <!-- Yesterday -->
+            <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
+                    <span class="flex items-center space-x-1.5">
+                        <span class="text-sm">📆</span>
+                        <span class="uppercase tracking-wider text-[11px]">Yesterday</span>
+                    </span>
+                    <span id="kpi-yest-orders" class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">0 orders</span>
+                </div>
+                <div class="text-lg sm:text-xl font-black text-slate-700 dark:text-slate-300 font-mono-num tracking-tight" id="kpi-yest-rev">Rs. 0</div>
+                <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Previous Day</div>
+            </div>
+
+            <!-- This Week with Trend -->
+            <div class="bg-white dark:bg-darkslate-850 border border-violet-500/20 dark:border-violet-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
+                    <span class="flex items-center space-x-1.5">
+                        <span class="text-sm">📊</span>
+                        <span class="uppercase tracking-wider text-[11px]">This Week</span>
+                    </span>
+                    <span id="kpi-week-orders" class="bg-violet-500/10 text-violet-700 dark:text-violet-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">0 orders</span>
+                </div>
+                <div class="text-lg sm:text-xl font-black text-violet-600 dark:text-violet-400 font-mono-num tracking-tight" id="kpi-week-rev">Rs. 0</div>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">vs last week</span>
+                    <span id="kpi-week-trend" class="text-[11px] font-bold"></span>
+                </div>
+            </div>
+
+            <!-- This Month with Trend -->
             <div class="bg-white dark:bg-darkslate-850 border border-amber-500/20 dark:border-amber-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
                         <span class="text-sm">📅</span>
                         <span class="uppercase tracking-wider text-[11px]">This Month</span>
                     </span>
-                    <span id="kpi-month-orders" class="bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
-                        0 orders
-                    </span>
+                    <span id="kpi-month-orders" class="bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">0 orders</span>
                 </div>
-                <div class="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num tracking-tight" id="kpi-month-rev">
-                    Rs. 0
-                </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Current Calendar Month
+                <div class="text-lg sm:text-xl font-black text-amber-600 dark:text-amber-400 font-mono-num tracking-tight" id="kpi-month-rev">Rs. 0</div>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">vs last month</span>
+                    <span id="kpi-month-trend" class="text-[11px] font-bold"></span>
                 </div>
             </div>
 
@@ -270,60 +292,38 @@ def render_pos_html() -> str:
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
                         <span class="text-sm">🏆</span>
-                        <span class="uppercase tracking-wider text-[11px]">Total Sales</span>
+                        <span class="uppercase tracking-wider text-[11px]">All-Time</span>
                     </span>
-                    <span id="kpi-total-orders" class="bg-sky-500/10 text-sky-700 dark:text-sky-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
-                        0 total
-                    </span>
+                    <span id="kpi-total-orders" class="bg-sky-500/10 text-sky-700 dark:text-sky-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">0 total</span>
                 </div>
-                <div class="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono-num tracking-tight" id="kpi-total-rev">
-                    Rs. 0
-                </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    WhatsApp + Counter Combined
-                </div>
+                <div class="text-lg sm:text-xl font-black text-sky-600 dark:text-sky-400 font-mono-num tracking-tight" id="kpi-total-rev">Rs. 0</div>
+                <div class="text-[10px] text-slate-400 dark:text-slate-500 mt-1">WhatsApp + Counter</div>
             </div>
 
-            <!-- Average Order Value (AOV) -->
+            <!-- AOV -->
             <div class="bg-white dark:bg-darkslate-850 border border-rose-500/20 dark:border-rose-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
                         <span class="text-sm">📈</span>
-                        <span class="uppercase tracking-wider text-[11px]">Avg Order (AOV)</span>
+                        <span class="uppercase tracking-wider text-[11px]">Avg Order</span>
                     </span>
-                    <span class="bg-rose-500/10 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
-                        Per Ticket
-                    </span>
+                    <span class="bg-rose-500/10 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded-md text-[11px]">AOV</span>
                 </div>
-                <div class="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 font-mono-num tracking-tight" id="kpi-avg-order">
-                    Rs. 0
-                </div>
-                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                    Average revenue per customer
+                <div class="text-lg sm:text-xl font-black text-rose-600 dark:text-rose-400 font-mono-num tracking-tight" id="kpi-avg-order">Rs. 0</div>
+                <div class="flex items-center space-x-1 mt-1">
+                    <span class="text-[10px] text-slate-400 dark:text-slate-500">per ticket</span>
+                    <span class="text-[10px] text-slate-300 dark:text-slate-600">|</span>
+                    <span id="kpi-delivery-rev" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold font-mono-num">🛵 Rs. 0</span>
                 </div>
             </div>
 
-            <!-- Sales Channel Split -->
-            <div class="bg-white dark:bg-darkslate-850 border border-purple-500/20 dark:border-purple-500/25 rounded-2xl p-3.5 col-span-2 sm:col-span-1 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
-                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
-                    <span class="flex items-center space-x-1.5">
-                        <span class="text-sm">🛵</span>
-                        <span class="uppercase tracking-wider text-[11px]">Channels</span>
-                    </span>
-                    <span class="text-slate-500 dark:text-slate-400 text-[11px]">Split</span>
-                </div>
-                <div class="space-y-1 mt-1 text-xs font-mono-num">
-                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                        <span class="text-slate-500 dark:text-slate-400">Delivery:</span>
-                        <span id="kpi-delivery-rev" class="font-bold text-emerald-600 dark:text-emerald-400">Rs. 0</span>
-                    </div>
-                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
-                        <span class="text-slate-500 dark:text-slate-400">Counter:</span>
-                        <span id="kpi-counter-rev" class="font-bold text-blue-600 dark:text-blue-400">Rs. 0</span>
-                    </div>
-                </div>
-            </div>
-
+        </div>
+        <!-- Cancelled Orders Disclaimer -->
+        <div class="max-w-7xl mx-auto mt-2">
+            <p class="text-[10px] text-slate-400 dark:text-slate-600 font-medium flex items-center space-x-1.5">
+                <span>⚠️</span>
+                <span>All revenue figures exclude cancelled orders. Trend arrows compare current vs previous period.</span>
+            </p>
         </div>
     </div>
 
@@ -508,165 +508,148 @@ def render_pos_html() -> str:
         </div>
 
         <!-- ───────────────────────────────────────────── -->
-        <!-- 📊 TAB 2: SALES & INCOME ANALYTICS -->
+        <!-- 📊 TAB 2: SALES & INCOME ANALYTICS (Modern) -->
         <!-- ───────────────────────────────────────────── -->
-        <div id="tab-content-sales" class="hidden space-y-6">
+        <div id="tab-content-sales" class="hidden space-y-5">
 
-            <!-- Financial Health Summary Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Net Revenue -->
+            <!-- Row 1: Summary Cards with Trend -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Gross Income -->
                 <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/20 shrink-0">
-                        💰
-                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-2xl flex items-center justify-center border border-emerald-500/20 shrink-0">💰</div>
                     <div>
                         <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Gross Income</div>
-                        <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="analytics-total-rev">Rs. 0</div>
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400">All Completed Orders</div>
+                        <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="analytics-total-rev">Rs. 0</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400">Cancelled orders excluded</div>
                     </div>
                 </div>
-
-                <!-- WhatsApp Orders Revenue -->
+                <!-- Delivery Channel -->
                 <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-2xl border border-emerald-500/20 shrink-0">
-                        🛵
-                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-green-500/10 dark:bg-green-500/15 text-2xl flex items-center justify-center border border-green-500/20 shrink-0">🛵</div>
                     <div>
-                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">WhatsApp Delivery</div>
-                        <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-300 font-mono-num" id="analytics-wa-rev">Rs. 0</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">WhatsApp</div>
+                        <div class="text-xl font-black text-green-600 dark:text-green-400 font-mono-num" id="analytics-wa-rev">Rs. 0</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-wa-orders">0 orders</div>
                     </div>
                 </div>
-
-                <!-- Counter & Dine-in Revenue -->
+                <!-- Counter Channel -->
                 <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
-                    <div class="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center text-2xl border border-sky-500/20 shrink-0">
-                        🛍️
-                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 text-2xl flex items-center justify-center border border-sky-500/20 shrink-0">🛍️</div>
                     <div>
-                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Counter & Dine-in</div>
-                        <div class="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono-num" id="analytics-counter-rev">Rs. 0</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Counter/Dine-in</div>
+                        <div class="text-xl font-black text-sky-600 dark:text-sky-400 font-mono-num" id="analytics-counter-rev">Rs. 0</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-counter-orders">0 orders</div>
                     </div>
                 </div>
-
-                <!-- Success Rate -->
+                <!-- Completion Rate -->
                 <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
-                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl border border-amber-500/20 shrink-0">
-                        🎯
-                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 text-2xl flex items-center justify-center border border-amber-500/20 shrink-0">🎯</div>
                     <div>
-                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Order Completion</div>
-                        <div class="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num" id="analytics-completion-rate">100%</div>
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-active-ratio">0 active now</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Success Rate</div>
+                        <div class="text-xl font-black text-amber-600 dark:text-amber-400 font-mono-num" id="analytics-completion-rate">100%</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-active-ratio">0 active</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Charts Row -->
+            <!-- Row 2: Main 30-day Revenue Chart + Channel Donut -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                <!-- Daily Sales Bar/Area Chart (30 Days) -->
-                <div class="lg:col-span-8 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 transition-colors">
+                <!-- 30-Day Area+Bar Revenue -->
+                <div class="lg:col-span-8 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3 transition-colors">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
-                                <span>📈</span>
-                                <span>Daily Sales Revenue & Volume Trend</span>
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                                <span>📈</span><span>30-Day Revenue & Orders Trend</span>
                             </h3>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Interactive revenue (PKR) and order count over the last 30 days</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Daily PKR revenue (bars) + order count line — cancelled excluded</p>
                         </div>
-                        <span class="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl font-mono-num font-bold">
-                            ● Unified Daily Tracking
-                        </span>
+                        <span class="text-xs text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-xl font-bold">🔴 Live</span>
                     </div>
-                    <div class="h-80 w-full pt-2">
-                        <canvas id="salesTrendChart"></canvas>
-                    </div>
+                    <div class="h-72 w-full"><canvas id="salesTrendChart"></canvas></div>
                 </div>
-
-                <!-- Channel & Order Distribution Doughnut Chart -->
-                <div class="lg:col-span-4 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
+                <!-- Channel Donut -->
+                <div class="lg:col-span-4 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3 flex flex-col transition-colors">
                     <div>
-                        <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
-                            <span>🥧</span>
-                            <span>Sales by Channel</span>
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                            <span>🥧</span><span>Revenue by Channel</span>
                         </h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Where revenue comes from</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">WhatsApp vs Counter vs Dine-in</p>
                     </div>
-                    <div class="h-56 flex items-center justify-center relative">
-                        <canvas id="statusChart"></canvas>
+                    <div class="flex-1 flex items-center justify-center min-h-[180px]">
+                        <canvas id="channelDonutChart"></canvas>
                     </div>
-                    <div id="status-legend" class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200/80 dark:border-slate-800">
-                        <!-- Populated by JS -->
-                    </div>
+                    <div id="channel-donut-legend" class="grid grid-cols-1 gap-1.5 text-xs pt-2 border-t border-slate-200/80 dark:border-slate-800"></div>
                 </div>
             </div>
 
-            <!-- Leaderboard & Pipeline Breakdown -->
+            <!-- Row 3: Hourly Peak + This Week vs Last Week -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                <!-- Top 10 Selling Items Leaderboard -->
-                <div class="lg:col-span-6 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 transition-colors">
+                <!-- Today's Hourly Orders (Peak Hours) -->
+                <div class="lg:col-span-5 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3 transition-colors">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                            <span>⏰</span><span>Today's Peak Hours</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Orders by hour today (PKT) — find your busiest times</p>
+                    </div>
+                    <div class="h-52 w-full"><canvas id="hourlyChart"></canvas></div>
+                </div>
+                <!-- This Week vs Last Week Comparison -->
+                <div class="lg:col-span-7 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3 transition-colors">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                            <span>📊</span><span>This Week vs Last Week</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Day-by-day revenue comparison — green = this week, blue = last week</p>
+                    </div>
+                    <div class="h-52 w-full"><canvas id="weekCompareChart"></canvas></div>
+                </div>
+            </div>
+
+            <!-- Row 4: Order Status Donut + Top Items Leaderboard -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+                <!-- Order Status Distribution -->
+                <div class="lg:col-span-5 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3 transition-colors">
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                            <span>🍳</span><span>Order Status Breakdown</span>
+                        </h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Pipeline flow — completed, preparing, pending, cancelled</p>
+                    </div>
+                    <div class="h-44 w-full flex items-center justify-center">
+                        <canvas id="statusDonutChart"></canvas>
+                    </div>
+                    <div id="status-bars-container" class="space-y-2 text-xs"></div>
+                </div>
+
+                <!-- Top 10 Items Leaderboard -->
+                <div class="lg:col-span-7 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3 transition-colors">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
-                                <span>🏆</span>
-                                <span>Top Selling Menu Items</span>
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                                <span>🏆</span><span>Top Selling Items</span>
                             </h3>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Most ordered deals & food items</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Best-performing menu items by quantity sold</p>
                         </div>
                         <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Rank by Qty</span>
                     </div>
-
-                    <div class="space-y-3" id="top-items-container">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- Pipeline Status Progress & Accounting Info -->
-                <div class="lg:col-span-6 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
-                    <div class="space-y-4">
-                        <div>
-                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
-                                <span>🍳</span>
-                                <span>Kitchen Pipeline Status</span>
-                            </h3>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Current workflow breakdown</p>
-                        </div>
-
-                        <div class="space-y-2.5 text-xs" id="status-bars-container">
-                            <!-- Populated by JS -->
-                        </div>
-                    </div>
-
-                    <!-- Direct Excel / CSV Export Banner -->
-                    <div class="bg-slate-50 dark:bg-darkslate-950 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2 mt-4">
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Financial Reporting & Accounting</span>
-                            <span class="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded font-mono-num font-bold">CSV / Excel</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Export every recorded order with timestamps, customer names, phone numbers, items, special notes, and amounts.
-                        </p>
-                        <a href="/api/sales/export" download class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-md active:scale-95">
-                            <span>📥</span>
-                            <span>Download All Sales History (.CSV)</span>
-                        </a>
-                    </div>
+                    <div class="space-y-2 max-h-72 overflow-y-auto pr-1" id="top-items-container"></div>
                 </div>
             </div>
 
-            <!-- Recent Completed Sales Ledger Table -->
-            <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3.5 transition-colors">
-                <div class="flex items-center justify-between">
+            <!-- Row 5: Sales Ledger Table -->
+            <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm space-y-3.5 transition-colors">
+                <div class="flex items-center justify-between flex-wrap gap-2">
                     <div>
-                        <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
-                            <span>📑</span>
-                            <span>Recent Sales Transactions Ledger</span>
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-sm flex items-center space-x-2">
+                            <span>📑</span><span>Sales Ledger — All Transactions</span>
                         </h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400">Last 50 customer orders</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Last 50 orders — <span class="text-rose-500 font-bold">cancelled orders shown in red, excluded from totals</span></p>
                     </div>
+                    <a href="/api/sales/export" download class="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 px-4 rounded-xl text-xs flex items-center space-x-1.5 transition shadow-md active:scale-95">
+                        <span>📥</span><span>Export CSV</span>
+                    </a>
                 </div>
-
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead>
@@ -675,14 +658,12 @@ def render_pos_html() -> str:
                                 <th class="py-2.5 px-2">Time</th>
                                 <th class="py-2.5 px-2">Customer</th>
                                 <th class="py-2.5 px-2">Channel</th>
-                                <th class="py-2.5 px-2">Items Summary</th>
-                                <th class="py-2.5 px-2 text-right">Total Bill</th>
+                                <th class="py-2.5 px-2">Items</th>
+                                <th class="py-2.5 px-2 text-right">Total</th>
                                 <th class="py-2.5 px-2 text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody id="sales-ledger-tbody" class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-medium">
-                            <!-- Populated by JS -->
-                        </tbody>
+                        <tbody id="sales-ledger-tbody" class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-medium"></tbody>
                     </table>
                 </div>
             </div>
@@ -1201,15 +1182,35 @@ def render_pos_html() -> str:
             }
         }
 
+        function trendBadge(current, previous) {
+            if (!previous || previous === 0) return '<span class="text-slate-400 text-[10px]">— new</span>';
+            const pct = Math.round(((current - previous) / previous) * 100);
+            const up = pct >= 0;
+            const color = up ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/25' : 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-500/25';
+            const arrow = up ? '↑' : '↓';
+            return `<span class="${color} text-[11px] font-extrabold px-2 py-0.5 rounded-full border inline-flex items-center space-x-0.5"><span>${arrow}</span><span>${Math.abs(pct)}%</span></span>`;
+        }
+
         function updateKPICards(stats) {
             document.getElementById('kpi-today-rev').innerText = `Rs. ${(stats.today_revenue || 0).toLocaleString()}`;
             document.getElementById('kpi-today-orders').innerText = `${stats.today_orders || 0} orders`;
+            const todayTrendEl = document.getElementById('kpi-today-trend');
+            if (todayTrendEl) todayTrendEl.innerHTML = trendBadge(stats.today_revenue || 0, stats.yesterday_revenue || 0);
 
             document.getElementById('kpi-yest-rev').innerText = `Rs. ${(stats.yesterday_revenue || 0).toLocaleString()}`;
-            document.getElementById('kpi-yest-orders').innerText = `(${stats.yesterday_orders || 0})`;
+            document.getElementById('kpi-yest-orders').innerText = `${stats.yesterday_orders || 0} orders`;
+
+            const weekRevEl = document.getElementById('kpi-week-rev');
+            const weekOrdEl = document.getElementById('kpi-week-orders');
+            const weekTrendEl = document.getElementById('kpi-week-trend');
+            if (weekRevEl) weekRevEl.innerText = `Rs. ${(stats.week_revenue || 0).toLocaleString()}`;
+            if (weekOrdEl) weekOrdEl.innerText = `${stats.week_orders || 0} orders`;
+            if (weekTrendEl) weekTrendEl.innerHTML = trendBadge(stats.week_revenue || 0, stats.last_week_revenue || 0);
 
             document.getElementById('kpi-month-rev').innerText = `Rs. ${(stats.month_revenue || 0).toLocaleString()}`;
             document.getElementById('kpi-month-orders').innerText = `${stats.month_orders || 0} orders`;
+            const monthTrendEl = document.getElementById('kpi-month-trend');
+            if (monthTrendEl) monthTrendEl.innerHTML = trendBadge(stats.month_revenue || 0, stats.last_month_revenue || 0);
 
             document.getElementById('kpi-total-rev').innerText = `Rs. ${(stats.total_revenue || 0).toLocaleString()}`;
             document.getElementById('kpi-total-orders').innerText = `${stats.total_orders || 0} total`;
@@ -1218,10 +1219,12 @@ def render_pos_html() -> str:
 
             // Channel Breakdown
             const ch = stats.channel_stats || {};
-            const delRev = (ch.delivery?.revenue || 0).toLocaleString();
-            const counterRev = ((ch.counter?.revenue || 0) + (ch.dine_in?.revenue || 0)).toLocaleString();
-            document.getElementById('kpi-delivery-rev').innerText = `Rs. ${delRev}`;
-            document.getElementById('kpi-counter-rev').innerText = `Rs. ${counterRev}`;
+            const delRev = ch.delivery?.revenue || 0;
+            const counterRev = (ch.counter?.revenue || 0) + (ch.dine_in?.revenue || 0);
+            const kpiDelEl = document.getElementById('kpi-delivery-rev');
+            const kpiCtrEl = document.getElementById('kpi-counter-rev');
+            if (kpiDelEl) kpiDelEl.innerText = `🛵 Rs. ${delRev.toLocaleString()}`;
+            if (kpiCtrEl) kpiCtrEl.innerText = `Rs. ${counterRev.toLocaleString()}`;
 
             // Active orders badge
             const activeCount = (allOrders || []).filter(o => ['pending', 'preparing', 'out_for_delivery'].includes(o.status)).length;
@@ -1361,165 +1364,219 @@ def render_pos_html() -> str:
             });
         }
 
+        // Chart instances
+        let hourlyChartInstance = null;
+        let weekCompareChartInstance = null;
+        let channelDonutChartInstance = null;
+        let statusDonutChartInstance = null;
+
+        function mkTooltip(isDark) {
+            return {
+                backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                titleColor: isDark ? '#ffffff' : '#0f172a',
+                bodyColor: isDark ? '#cbd5e1' : '#334155',
+                borderColor: isDark ? '#334155' : '#cbd5e1',
+                borderWidth: 1,
+                padding: 10,
+                cornerRadius: 8
+            };
+        }
+
         function renderSalesCharts() {
-            if (!salesStats || !salesStats.daily_breakdown) return;
+            if (!salesStats) return;
 
             const isDark = document.documentElement.classList.contains('dark');
-            const gridColor = isDark ? 'rgba(51, 65, 85, 0.25)' : 'rgba(203, 213, 225, 0.6)';
+            const gridColor = isDark ? 'rgba(51,65,85,0.25)' : 'rgba(203,213,225,0.5)';
             const tickColor = isDark ? '#94a3b8' : '#475569';
-            const tickYColor = isDark ? '#cbd5e1' : '#1e293b';
             const legendColor = isDark ? '#f1f5f9' : '#0f172a';
+            const bgPanel = isDark ? '#0f172a' : '#ffffff';
 
-            // 1. Daily Sales Area & Bar Chart
+            // ── 1. 30-Day Revenue Area+Bar Chart ─────────────────────────
             const trendCtx = document.getElementById('salesTrendChart')?.getContext('2d');
-            if (trendCtx) {
-                const labels = salesStats.daily_breakdown.map(d => {
-                    const parts = d.date.split('-');
-                    return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : d.date;
+            if (trendCtx && salesStats.daily_breakdown) {
+                const labels = (salesStats.daily_breakdown || []).map(d => {
+                    const parts = (d.sale_date || d.date || '').split('-');
+                    return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : (d.sale_date || d.date || '');
                 });
-                const revenues = salesStats.daily_breakdown.map(d => d.revenue || d.total_revenue || 0);
-                const orders = salesStats.daily_breakdown.map(d => d.order_count || d.orders_count || 0);
+                const revenues = (salesStats.daily_breakdown || []).map(d => d.revenue || 0);
+                const orders = (salesStats.daily_breakdown || []).map(d => d.order_count || 0);
 
                 if (salesChartInstance) salesChartInstance.destroy();
 
-                const gradientRev = trendCtx.createLinearGradient(0, 0, 0, 300);
-                gradientRev.addColorStop(0, isDark ? 'rgba(225, 29, 72, 0.45)' : 'rgba(225, 29, 72, 0.25)');
-                gradientRev.addColorStop(1, 'rgba(225, 29, 72, 0.0)');
+                const grad = trendCtx.createLinearGradient(0, 0, 0, 280);
+                grad.addColorStop(0, isDark ? 'rgba(225,29,72,0.5)' : 'rgba(225,29,72,0.3)');
+                grad.addColorStop(1, 'rgba(225,29,72,0)');
 
                 salesChartInstance = new Chart(trendCtx, {
                     type: 'bar',
                     data: {
-                        labels: labels,
+                        labels,
                         datasets: [
                             {
-                                label: 'Daily Revenue (Rs.)',
+                                label: 'Revenue (Rs.)',
                                 data: revenues,
-                                backgroundColor: gradientRev,
-                                borderColor: '#f43f5e',
+                                backgroundColor: grad,
+                                borderColor: '#e11d48',
                                 borderWidth: 2,
-                                borderRadius: 8,
-                                fill: true,
+                                borderRadius: 6,
                                 yAxisID: 'y'
                             },
                             {
-                                label: 'Orders Count',
+                                label: 'Orders',
                                 data: orders,
                                 type: 'line',
                                 borderColor: '#10b981',
                                 backgroundColor: '#10b981',
-                                tension: 0.35,
-                                pointRadius: 4,
+                                tension: 0.4,
+                                pointRadius: 3,
                                 pointHoverRadius: 6,
-                                borderWidth: 3,
+                                borderWidth: 2.5,
+                                fill: false,
                                 yAxisID: 'y1'
                             }
                         ]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         interaction: { mode: 'index', intersect: false },
                         scales: {
-                            x: {
-                                grid: { color: gridColor },
-                                ticks: { color: tickColor, font: { size: 11, weight: '600' } }
-                            },
+                            x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10, weight: '600' }, maxTicksLimit: 15 } },
                             y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
-                                grid: { color: gridColor },
-                                ticks: {
-                                    color: tickYColor,
-                                    font: { size: 11, family: 'JetBrains Mono', weight: '700' },
-                                    callback: v => 'Rs. ' + v.toLocaleString()
-                                }
+                                position: 'left', grid: { color: gridColor },
+                                ticks: { color: tickColor, font: { size: 10, family: 'JetBrains Mono', weight: '700' }, callback: v => 'Rs.' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }
                             },
                             y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                grid: { drawOnChartArea: false },
-                                ticks: {
-                                    color: '#10b981',
-                                    font: { size: 11, family: 'JetBrains Mono', weight: '700' },
-                                    stepSize: 1
-                                }
+                                position: 'right', grid: { drawOnChartArea: false },
+                                ticks: { color: '#10b981', font: { size: 10, weight: '700' }, stepSize: 1 }
                             }
                         },
                         plugins: {
-                            legend: {
-                                labels: { color: legendColor, font: { size: 12, weight: '700' } }
-                            },
-                            tooltip: {
-                                backgroundColor: isDark ? '#0f172a' : '#ffffff',
-                                titleColor: isDark ? '#ffffff' : '#0f172a',
-                                bodyColor: isDark ? '#cbd5e1' : '#334155',
-                                borderColor: isDark ? '#334155' : '#cbd5e1',
-                                borderWidth: 1,
-                                padding: 10,
-                                callbacks: {
-                                    label: function(context) {
-                                        if (context.dataset.yAxisID === 'y') {
-                                            return ` Revenue: Rs. ${context.parsed.y.toLocaleString()}`;
-                                        }
-                                        return ` Orders: ${context.parsed.y}`;
-                                    }
-                                }
-                            }
+                            legend: { labels: { color: legendColor, font: { size: 11, weight: '700' }, boxWidth: 12, padding: 16 } },
+                            tooltip: { ...mkTooltip(isDark), callbacks: {
+                                label: ctx => ctx.dataset.yAxisID === 'y' ? ` Revenue: Rs. ${ctx.parsed.y.toLocaleString()}` : ` Orders: ${ctx.parsed.y}`
+                            }}
                         }
                     }
                 });
             }
 
-            // 2. Channel Distribution Doughnut Chart
-            const statusCtx = document.getElementById('statusChart')?.getContext('2d');
-            if (statusCtx) {
+            // ── 2. Channel Donut ──────────────────────────────────────────
+            const chCtx = document.getElementById('channelDonutChart')?.getContext('2d');
+            if (chCtx) {
                 const ch = salesStats.channel_stats || {};
-                const delRev = ch.delivery?.revenue || 0;
-                const counterRev = (ch.counter?.revenue || 0) + (ch.dine_in?.revenue || 0);
-
-                const chLabels = ['WhatsApp Delivery', 'Counter & Dine-in'];
-                const chValues = [delRev, counterRev];
-                const chColors = ['#10b981', '#38bdf8'];
-
-                if (statusChartInstance) statusChartInstance.destroy();
-
-                statusChartInstance = new Chart(statusCtx, {
+                const chLabels = ['🛵 Delivery', '🛍️ Counter', '🍽️ Dine-in'];
+                const chValues = [ch.delivery?.revenue || 0, ch.counter?.revenue || 0, ch.dine_in?.revenue || 0];
+                const chColors = ['#10b981', '#38bdf8', '#f59e0b'];
+                if (channelDonutChartInstance) channelDonutChartInstance.destroy();
+                channelDonutChartInstance = new Chart(chCtx, {
                     type: 'doughnut',
-                    data: {
-                        labels: chLabels,
-                        datasets: [{
-                            data: chValues,
-                            backgroundColor: chColors,
-                            borderColor: isDark ? '#0f172a' : '#ffffff',
-                            borderWidth: 3,
-                            hoverOffset: 6
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false }
-                        },
-                        cutout: '72%'
+                    data: { labels: chLabels, datasets: [{ data: chValues, backgroundColor: chColors, borderColor: isDark ? '#0f172a' : '#fff', borderWidth: 3, hoverOffset: 8 }] },
+                    options: { responsive: true, maintainAspectRatio: false, cutout: '70%',
+                        plugins: { legend: { display: false }, tooltip: { ...mkTooltip(isDark), callbacks: { label: ctx => ` Rs. ${ctx.parsed.toLocaleString()}` } } }
                     }
                 });
+                const legEl = document.getElementById('channel-donut-legend');
+                if (legEl) {
+                    legEl.innerHTML = '';
+                    chLabels.forEach((lb, i) => {
+                        const pct = chValues.reduce((a,b) => a+b, 0) > 0 ? Math.round((chValues[i] / chValues.reduce((a,b) => a+b, 0)) * 100) : 0;
+                        legEl.innerHTML += `<div class="flex items-center justify-between bg-slate-50 dark:bg-darkslate-950 px-3 py-2 rounded-xl border border-slate-200/80 dark:border-slate-800"><span class="flex items-center space-x-2"><span class="w-2.5 h-2.5 rounded-full" style="background:${chColors[i]}"></span><span class="text-slate-700 dark:text-slate-300 font-semibold">${lb}</span></span><span class="font-extrabold text-slate-900 dark:text-white font-mono-num">Rs. ${chValues[i].toLocaleString()} <span class="text-slate-400 font-normal">(${pct}%)</span></span></div>`;
+                    });
+                }
+            }
 
-                const legendEl = document.getElementById('status-legend');
-                legendEl.innerHTML = '';
-                chLabels.forEach((label, idx) => {
-                    const rev = chValues[idx];
-                    legendEl.innerHTML += `
-                        <div class="bg-slate-50 dark:bg-darkslate-950 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center space-x-2">
-                            <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${chColors[idx]}"></span>
-                            <div class="min-w-0">
-                                <span class="text-slate-600 dark:text-slate-300 block text-[11px] font-semibold truncate">${label}</span>
-                                <span class="font-extrabold text-slate-900 dark:text-white font-mono-num text-xs">Rs. ${rev.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    `;
+            // ── 3. Today's Hourly Peak Chart ─────────────────────────────
+            const hourCtx = document.getElementById('hourlyChart')?.getContext('2d');
+            if (hourCtx) {
+                const hourly = salesStats.hourly_breakdown || [];
+                const hourLabels = Array.from({length: 24}, (_, i) => { const h = i % 12 || 12; return `${h}${i < 12 ? 'am' : 'pm'}`; });
+                const hourOrders = Array(24).fill(0);
+                hourly.forEach(h => { if (h.hour >= 0 && h.hour < 24) hourOrders[h.hour] = h.order_count; });
+                const maxH = Math.max(...hourOrders, 1);
+                const hourColors = hourOrders.map(v => v === maxH && maxH > 0 ? '#e11d48' : (isDark ? 'rgba(148,163,184,0.5)' : 'rgba(148,163,184,0.6)'));
+                if (hourlyChartInstance) hourlyChartInstance.destroy();
+                hourlyChartInstance = new Chart(hourCtx, {
+                    type: 'bar',
+                    data: { labels: hourLabels, datasets: [{ label: 'Orders', data: hourOrders, backgroundColor: hourColors, borderRadius: 4 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 9, weight: '600' }, maxRotation: 0 } },
+                            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10 }, stepSize: 1 }, beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { ...mkTooltip(isDark), callbacks: { title: ctx => `Hour: ${ctx[0].label}`, label: ctx => ` ${ctx.parsed.y} orders` } }
+                        }
+                    }
+                });
+            }
+
+            // ── 4. This Week vs Last Week Comparison ──────────────────────
+            const weekCtx = document.getElementById('weekCompareChart')?.getContext('2d');
+            if (weekCtx) {
+                const weeklyData = salesStats.weekly_breakdown || [];
+                const today = new Date();
+                const thisWeek = [], lastWeek = [], dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+                for (let i = 6; i >= 0; i--) {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const found = weeklyData.find(r => r.sale_date === dateStr);
+                    thisWeek.push(found ? found.revenue : 0);
+                }
+                for (let i = 13; i >= 7; i--) {
+                    const d = new Date(today);
+                    d.setDate(d.getDate() - i);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const found = weeklyData.find(r => r.sale_date === dateStr);
+                    lastWeek.push(found ? found.revenue : 0);
+                }
+
+                if (weekCompareChartInstance) weekCompareChartInstance.destroy();
+                weekCompareChartInstance = new Chart(weekCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: dayLabels,
+                        datasets: [
+                            { label: 'This Week', data: thisWeek, backgroundColor: isDark ? 'rgba(16,185,129,0.75)' : 'rgba(16,185,129,0.65)', borderColor: '#10b981', borderWidth: 1.5, borderRadius: 5 },
+                            { label: 'Last Week', data: lastWeek, backgroundColor: isDark ? 'rgba(56,189,248,0.5)' : 'rgba(56,189,248,0.4)', borderColor: '#38bdf8', borderWidth: 1.5, borderRadius: 5 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 11, weight: '600' } } },
+                            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 10, family: 'JetBrains Mono' }, callback: v => 'Rs.' + (v >= 1000 ? (v/1000).toFixed(1)+'k' : v) }, beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { labels: { color: legendColor, font: { size: 11, weight: '700' }, boxWidth: 12, padding: 16 } },
+                            tooltip: { ...mkTooltip(isDark), callbacks: { label: ctx => ` ${ctx.dataset.label}: Rs. ${ctx.parsed.y.toLocaleString()}` } }
+                        }
+                    }
+                });
+            }
+
+            // ── 5. Status Donut Chart ────────────────────────────────────
+            const sdCtx = document.getElementById('statusDonutChart')?.getContext('2d');
+            if (sdCtx) {
+                const sc = salesStats.status_counts || {};
+                const sdLabels = ['Completed', 'Preparing', 'Pending', 'Out for Delivery', 'Cancelled'];
+                const sdValues = [sc.completed || 0, sc.preparing || 0, sc.pending || 0, sc.out_for_delivery || 0, sc.cancelled || 0];
+                const sdColors = ['#10b981', '#38bdf8', '#f59e0b', '#a855f7', '#e11d48'];
+                if (statusDonutChartInstance) statusDonutChartInstance.destroy();
+                statusDonutChartInstance = new Chart(sdCtx, {
+                    type: 'doughnut',
+                    data: { labels: sdLabels, datasets: [{ data: sdValues, backgroundColor: sdColors, borderColor: isDark ? '#0f172a' : '#fff', borderWidth: 2, hoverOffset: 6 }] },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, cutout: '65%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { ...mkTooltip(isDark), callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} orders` } }
+                        }
+                    }
                 });
             }
         }
