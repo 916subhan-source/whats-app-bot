@@ -124,102 +124,37 @@ def format_phone_number(raw_phone: str) -> str:
         return f"0{clean[2:]}"
     return f"+{clean}" if clean else "Customer"
 
-# Menu knowledge base string for Gemini AI
+# Compact, ultra-fast Menu knowledge base for low latency
 menu_lines = []
 for cat in MENU.values():
-    menu_lines.append(f"Category: {cat['name']} ({cat['emoji']})")
+    menu_lines.append(f"[{cat['name']}]")
     for item in cat["items"]:
-        prices_str = ""
         if "prices" in item:
-            pr_parts = [f"{sz.title()}: Rs. {p}" for sz, p in item["prices"].items()]
-            prices_str = " (" + ", ".join(pr_parts) + ")"
+            pr_parts = [f"{sz.title()}: Rs.{p}" for sz, p in item["prices"].items()]
+            menu_lines.append(f"• {item['name']} ({', '.join(pr_parts)})")
         else:
-            prices_str = f" -> {RESTAURANT_INFO['currency']} {item.get('price', 0)}"
-        desc = f" - {item.get('desc')}" if item.get("desc") else ""
-        menu_lines.append(f"  * {item['name']}{prices_str}{desc}")
-    menu_lines.append("")
+            menu_lines.append(f"• {item['name']} — Rs.{item.get('price', 0)}")
 menu_knowledge_base = "\n".join(menu_lines)
 
 def build_system_instruction(customer_name: str, phone_number: str) -> str:
     formatted_phone = format_phone_number(phone_number)
     clean_name = RESTAURANT_INFO["name"].replace("🍕", "").strip().title()
 
-    return f"""
-You are the warm, polite, and attentive WhatsApp food ordering assistant for "{clean_name}" (Circular Road, Opposite Stylo Shopping Center, Dera Ismail Khan).
-
-CUSTOMER PROFILE:
-- Name: {customer_name}
-- Phone: {formatted_phone}
+    return f"""You are the polite, concise WhatsApp ordering assistant for "{clean_name}" (Circular Road, Opp. Stylo Center, D.I. Khan).
+Customer: {customer_name} ({formatted_phone})
 
 CRITICAL RULES:
+1. DEALS 1-26: All items & sizes in Deals are ALREADY FIXED. Accept immediately. NEVER ask size or burger flavor for any deal. Ask delivery address if not known.
+2. STANDALONE ITEMS: Only ask size if standalone pizza has no size (Small Rs.450, Med Rs.750, Large Rs.1100, XL Rs.1700).
+3. SPECIAL NOTES: If customer gives instructions ("cheese kam", "kam sauce", "spicy"), warmly acknowledge!
+4. KEEP RESPONSES SHORT & FAST: 1 to 3 friendly sentences in sweet Roman Urdu / English.
+5. TWO-STEP CONFIRMATION:
+   - Step 1: When address & items ready, show Order Summary and ask confirmation ("Kya aap confirm karte hain?").
+   - Step 2: Only after customer says "Yes/Haan/Confirm", show Order #FE-XXXX Confirmed slip.
+   - ZERO PAYMENT MENTION: Never mention payment method, Easypaisa, or Cash on Delivery. Rider collects on delivery.
 
-1. ⚠️ AMAZING DEALS (DEALS 1 TO 26) HAVE FIXED ITEMS & SIZES:
-   - When a customer orders any Deal (e.g. "Deal 1", "Deal 2", "Deal 21", "Deal 22", etc.):
-     * All items, sizes, and drinks in the deal are ALREADY FIXED in the official menu card!
-     * NEVER ask what pizza size or burger flavor they want for a deal!
-     * Accept the deal immediately: "Theek hai! Apna delivery address send karein." If address is already known, confirm the order immediately!
-
-2. ONLY CLARIFY VAGUE STANDALONE / ALA CARTE ITEMS (NOT DEALS):
-   - Only ask questions if the customer orders standalone single items without specifying:
-     * If they say just "1 pizza" without size: ask size (Small Rs. 450, Medium Rs. 750, Large Rs. 1100, Family Rs. 1700).
-     * If they say just "1 burger" without type: ask "Zinger burger, Anda burger ya Chapli burger?"
-   - NEVER ask for size or item options if the customer ordered any Deal!
-
-3. ⚠️ TWO-STEP ORDER CONFIRMATION PROTOCOL (CRITICAL MANDATORY RULE):
-   - STEP 1 (ORDER SUMMARY & REVIEW):
-     * When items and delivery address are collected, DO NOT immediately confirm the order!
-     * Output the simplified, elegant Order Summary (DO NOT INCLUDE PAYMENT LINE) and ask the customer to confirm:
-
-*{clean_name}*
-📋 *Order Summary*
-────────────────────
-👤 *Customer:* {customer_name} | {formatted_phone}
-📍 *Delivery Address:* [Customer Address]
-
-🍽️ *Items:*
-• [Qty]x [Item/Deal Name with components] — Rs. [Item Price x Qty]
-[If customer gave any special instruction like "cheese kam", "kam sauce", "spicy", "extra sauce", include:
-📝 *Special Note:* [Customer instructions]]
-
-💰 *Food Total:* Rs. [Total Bill]
-🛵 *Delivery Charges:* Rider distance ke mutabiq collect karega
-⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
-────────────────────
-👉 *Kya aap is order ko confirm karte hain?*
-(Order finalize karne ke liye please *"Yes / Haan"* ya *"Confirm"* reply karein.)
-
-   - STEP 2 (FINAL ORDER CONFIRMED):
-     * ONLY after the customer explicitly replies with "Yes", "Haan", "Confirm", "OK", "Theek hai", "Bhej dein":
-     * Output the official confirmed slip (DO NOT INCLUDE PAYMENT LINE):
-
-*{clean_name}*
-Order #FE-[Random 4 Digits] Confirmed ✅
-────────────────────
-👤 *Customer:* {customer_name} | {formatted_phone}
-📍 *Delivery Address:* [Customer Address]
-
-🍽️ *Items:*
-• [Qty]x [Item/Deal Name with components] — Rs. [Item Price x Qty]
-[If customer gave any special instruction:
-📝 *Special Note:* [Customer instructions]]
-
-💰 *Food Total:* Rs. [Total Bill]
-🛵 *Delivery Charges:* Rider distance ke mutabiq collect karega
-⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
-────────────────────
-Aap ka order kitchen mein bhej diya gaya hai aur jald deliver hoga. Shukriya! 🛵
-
-4. DELIVERY CHARGES POLICY:
-   - Delivery charges are NOT free. They are calculated based on distance and paid directly to the rider at delivery time. NEVER say delivery is free.
-
-5. EMOJI DENSITY RULE:
-   - For short messages (greetings, questions, updates): use exactly 1 emoji.
-   - For long messages (receipts, full menus, summaries): use at most 2 to 3 emojis total. No emoji spam!
-   - Natural conversational Urdu / English.
-
-COMPLETE MENU & EXACT PRICES (FROM OFFICIAL MENU PICTURES):
-{menu_knowledge_base}
-"""
+MENU:
+{menu_knowledge_base}"""
 
 async def call_gemini_ai(user_history, api_key: str, customer_name: str, phone_number: str) -> str:
     sys_instruction = build_system_instruction(customer_name, phone_number)
@@ -302,9 +237,9 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
 
     # Try ultra-fast, high-capacity models first (benchmarked live on your VPS FreeLLMAPI)
     models_to_try = [
-        os.getenv("AI_MODEL_NAME", "gemini-3.5-flash-lite"),
+        os.getenv("AI_MODEL_NAME", "gemini-flash-lite"),
         "gemini-flash-lite",
-        "qwen3.8-flash"
+        "gemini-3.5-flash-lite",
     ]
 
     client = get_http_client()
@@ -318,8 +253,8 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
         payload = {
             "model": model,
             "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1200
+            "temperature": 0.6,
+            "max_tokens": 300
         }
         try:
             response = await client.post(url, json=payload, headers=headers, timeout=8.0)
@@ -1344,6 +1279,57 @@ async def should_send_menu_pictures(phone_number: str, message_text: str) -> boo
 async def process_message(phone_number: str, message_text: str, customer_name: str = "Customer"):
     clean_text = message_text.lower().strip()
 
+    # 0a. Fast-path: Instant Greetings (<0.01s)
+    greetings = {"hi", "hello", "salam", "assalam o alaikum", "asalam alaikum", "aoa", "hey", "slam", "salam alaikum", "start"}
+    should_send_menu_images = await should_send_menu_pictures(phone_number, message_text)
+    if clean_text in greetings:
+        clean_rname = RESTAURANT_INFO["name"].replace("🍕", "").strip()
+        if should_send_menu_images:
+            await mark_customer_welcomed(phone_number)
+            return {
+                "text": f"Walaikum Assalam {customer_name}! 😊 *{clean_rname}* mein khushamdeed.\nYeh raha hamara official menu card! 🍕\nAaj aap ke liye kya deliver karein?",
+                "send_menu_images": True,
+                "order_confirmed": False
+            }
+        return {
+            "text": f"Walaikum Assalam {customer_name}! 😊 *{clean_rname}* mein khushamdeed.\nAaj aap ke liye kya deliver karein? Humari super-hit Deals dekhni hain ya koi pizza / burger?",
+            "send_menu_images": False,
+            "order_confirmed": False
+        }
+
+    # 0b. Fast-path: Instant Order Confirmation (<0.01s)
+    confirm_words = {"yes", "haan", "han", "confirm", "ok", "theek hai", "theek hy", "done", "bhej do", "bhej dein", "kar do", "kar dein", "ji haan", "jee haan"}
+    cart = await get_cart(phone_number)
+    if cart.get("awaiting_confirmation") and clean_text in confirm_words and cart.get("address"):
+        import random
+        order_id = f"#FE-{random.randint(1000, 9999)}"
+        items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items in order", 0, 0)
+        confirmed_slip = create_order_placement_slip(order_id, customer_name, phone_number, cart["address"], cart, cart.get("special_notes"))
+
+        cart["awaiting_confirmation"] = False
+        cart["items"] = []
+        cart["special_notes"] = ""
+        await save_cart(phone_number, cart)
+
+        order_details = {
+            "order_id": order_id,
+            "customer_name": customer_name,
+            "customer_phone": format_phone_number(phone_number),
+            "address": cart.get("address"),
+            "items_list": items_list,
+            "special_notes": cart.get("special_notes") or "",
+            "subtotal": subtotal,
+            "delivery_fee": 0,
+            "total": total,
+            "slip": confirmed_slip
+        }
+        return {
+            "text": confirmed_slip,
+            "order_confirmed": True,
+            "order_details": order_details,
+            "send_menu_images": False
+        }
+
     # 1. Direct Item Price & Large Quantity Math Calculator (100% accurate, 0ms, no menu images)
     price_reply = analyze_item_price_and_calc(clean_text)
     if price_reply:
@@ -1380,7 +1366,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 "role": "user",
                 "parts": [{"text": message_text}]
             })
-            recent_history = history[-10:]
+            recent_history = history[-4:]
             ai_reply = await call_freellm_ai(recent_history, freellm_base, freellm_key, customer_name, phone_number)
             if ai_reply:
                 history.append({
@@ -1401,7 +1387,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                 "role": "user",
                 "parts": [{"text": message_text}]
             })
-            recent_history = history[-10:]
+            recent_history = history[-4:]
             ai_reply = await call_gemini_ai(recent_history, gemini_key, customer_name, phone_number)
             if ai_reply:
                 history.append({

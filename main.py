@@ -133,6 +133,28 @@ async def send_whatsapp_message(to: str, text: str):
 
     return {"error": "No WhatsApp provider configured"}
 
+
+async def send_typing_presence(to: str):
+    """Instantly triggers 'typing...' in WhatsApp so customer feels zero latency."""
+    if not (EVOLUTION_API_URL and EVOLUTION_API_KEY):
+        return
+    clean_target = to.replace("+", "").replace(" ", "").replace("-", "").strip()
+    if clean_target.startswith("0"):
+        clean_target = "92" + clean_target[1:]
+    if "@" in clean_target:
+        clean_target = clean_target.split("@")[0]
+    client = get_wa_client()
+    try:
+        evo_url = f"{EVOLUTION_API_URL}/chat/sendPresence/{EVOLUTION_INSTANCE_NAME}"
+        await client.post(
+            evo_url,
+            json={"number": clean_target, "presence": "composing", "delay": 1200},
+            headers={"apikey": EVOLUTION_API_KEY},
+            timeout=2.0
+        )
+    except Exception:
+        pass
+
 async def send_whatsapp_image(to: str, media_id: str = None, image_url: str = None, caption: str = None):
     clean_target = to.replace("+", "").replace(" ", "").replace("-", "").strip()
     if clean_target.startswith("0"):
@@ -388,24 +410,27 @@ async def handle_incoming_messages(data: dict):
             if not incoming_text.strip():
                 return
 
+            # Instantly display 'typing...' in customer's WhatsApp
+            asyncio.create_task(send_typing_presence(from_number))
+
             print(f"[MSG EVO] Message from {customer_name} ({from_number}): \"{incoming_text}\"")
 
             # Process through unified chatbot engine
             reply = await process_message(from_number, incoming_text, customer_name)
 
-            # If customer asked for menu or needs pictures, send the 2 new official menu cards
+            # If customer asked for menu or needs pictures, send official menu cards in parallel
             if isinstance(reply, dict) and reply.get("send_menu_images"):
-                print(f"[MENU IMAGES EVO] Sending 2 new menu cards to {from_number}...")
-                for page in MENU_PAGES:
-                    try:
-                        await send_whatsapp_image(
-                            to=from_number,
-                            media_id=page.get("id"),
-                            image_url=page.get("url"),
-                            caption=page.get("caption")
-                        )
-                    except Exception as img_err:
-                        print(f"[MENU IMAGE EVO ERROR] {img_err}")
+                print(f"[MENU IMAGES EVO] Sending menu cards concurrently to {from_number}...")
+                img_tasks = [
+                    send_whatsapp_image(
+                        to=from_number,
+                        media_id=page.get("id"),
+                        image_url=page.get("url"),
+                        caption=page.get("caption")
+                    )
+                    for page in MENU_PAGES
+                ]
+                await asyncio.gather(*img_tasks, return_exceptions=True)
 
             text_to_send = reply.get("text", "") if isinstance(reply, dict) else str(reply)
             print(f"[REPLY EVO] Reply to {from_number}: \"{text_to_send[:80]}...\"")
