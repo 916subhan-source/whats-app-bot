@@ -460,8 +460,7 @@ def get_human_menu_text() -> str:
         f"  • Chicken Shawarma: Rs. 200 (Reg) / Rs. 150 (Special)\n"
         f"  • Zinger Shawarma: Rs. 300 (Reg) / Rs. 220 (Special)\n"
         f"  • Zinger Paratha Roll: Rs. 350 (Reg) / Rs. 270 (Special)\n\n"
-        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n"
-        f"💵 *Payment:* Cash on Delivery / Easypaisa (0341-5531083)\n\n"
+        f"🛵 *Delivery:* Rider distance ke mutabiq collect karega (30-45 mins)\n\n"
         f"Order karne ke liye item ya deal ka naam send karein!"
     )
 
@@ -1416,7 +1415,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
 
     if ai_reply:
         # Strip out any legacy payment lines to keep template 100% clean and elegant
-        ai_reply = re.sub(r"\*?payment:\*?[^\n]+\n?", "", ai_reply, flags=re.IGNORECASE).strip()
+        ai_reply = re.sub(r"^[ \t]*[^\w\n]*(?:\bpayment\b|\beasypaisa\b|\bcash on delivery\b)[^\n]*\n?", "", ai_reply, flags=re.IGNORECASE | re.MULTILINE).strip()
 
         try:
             # Check if order was confirmed with final receipt slip vs still asking for confirmation

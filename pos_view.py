@@ -1,6 +1,6 @@
 # ============================================
 # 🍕 Cherry Peri Fast Food - POS & Sales Management HTML View
-# Enhanced, High-Contrast, Easily Readable Analytics & POS Terminal
+# Complete Light Mode & Dark Mode with Persistence
 # ============================================
 
 def render_pos_html() -> str:
@@ -10,6 +10,15 @@ def render_pos_html() -> str:
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cherry Peri — POS & Sales Management System</title>
+    <!-- Prevent Theme Flash -->
+    <script>
+        const savedTheme = localStorage.getItem('cherry_theme');
+        if (savedTheme === 'light') {
+            document.documentElement.classList.remove('dark');
+        } else {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -29,6 +38,7 @@ def render_pos_html() -> str:
                             900: '#881337',
                         },
                         darkslate: {
+                            700: '#334155',
                             800: '#1e293b',
                             850: '#141e33',
                             900: '#0f172a',
@@ -49,27 +59,45 @@ def render_pos_html() -> str:
     <style>
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+        html.dark body {
             background-color: #080d1a;
             color: #f1f5f9;
+        }
+        html:not(.dark) body {
+            background-color: #f8fafc;
+            color: #0f172a;
         }
         .font-mono-num {
             font-family: 'JetBrains Mono', monospace;
         }
-        /* High-Contrast Scrollbars */
+        /* Custom Scrollbars */
         ::-webkit-scrollbar {
             width: 7px;
             height: 7px;
         }
-        ::-webkit-scrollbar-track {
+        html.dark ::-webkit-scrollbar-track {
             background: #0f172a;
         }
-        ::-webkit-scrollbar-thumb {
+        html.dark ::-webkit-scrollbar-thumb {
             background: #334155;
             border-radius: 6px;
         }
-        ::-webkit-scrollbar-thumb:hover {
+        html.dark ::-webkit-scrollbar-thumb:hover {
             background: #475569;
         }
+        html:not(.dark) ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        html:not(.dark) ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+        }
+        html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
         /* Thermal Receipt Printing (80mm standard format) */
         @media print {
             body * {
@@ -97,67 +125,76 @@ def render_pos_html() -> str:
         }
         .tab-btn.active {
             background: linear-gradient(135deg, #e11d48, #be123c);
-            color: #ffffff;
-            box-shadow: 0 4px 14px rgba(225, 29, 72, 0.45);
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col bg-darkslate-950 text-slate-100 antialiased">
+<body class="min-h-screen flex flex-col antialiased">
 
     <!-- ───────────────────────────────────────────── -->
     <!-- 🔝 Top Navbar & Header -->
     <!-- ───────────────────────────────────────────── -->
-    <header class="bg-darkslate-900/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-lg">
+    <header class="bg-white/90 dark:bg-darkslate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-sm transition-colors">
         <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
             <!-- Brand -->
             <div class="flex items-center space-x-3.5">
-                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cherry-700 via-rose-600 to-amber-500 flex items-center justify-center text-2xl shadow-lg shadow-cherry-700/40 border border-rose-400/20">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cherry-700 via-rose-600 to-amber-500 flex items-center justify-center text-2xl shadow-lg shadow-cherry-700/30 border border-rose-400/20">
                     🍕
                 </div>
                 <div>
                     <div class="flex items-center space-x-2">
-                        <h1 class="text-xl font-black tracking-tight text-white">CHERRY PERI</h1>
-                        <span class="bg-gradient-to-r from-rose-500/20 to-amber-500/20 text-rose-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-rose-500/30">
+                        <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">CHERRY PERI</h1>
+                        <span class="bg-rose-500/15 text-rose-600 dark:text-rose-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-rose-500/25">
                             POS & SALES
                         </span>
                     </div>
-                    <p class="text-xs text-slate-400 font-medium">Opp. Stylo, Circular Road, Dera Ismail Khan</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Opp. Stylo, Circular Road, Dera Ismail Khan</p>
                 </div>
             </div>
 
             <!-- Tab Buttons -->
-            <nav class="flex items-center bg-darkslate-850 p-1.5 rounded-2xl border border-slate-800 space-x-1.5 shadow-inner">
-                <button onclick="switchTab('pos')" id="btn-tab-pos" class="tab-btn active px-4 py-2 rounded-xl text-sm font-bold text-slate-300 hover:text-white transition flex items-center space-x-2">
+            <nav class="flex items-center bg-slate-100 dark:bg-darkslate-850 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-x-1.5 shadow-inner">
+                <button onclick="switchTab('pos')" id="btn-tab-pos" class="tab-btn active px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition flex items-center space-x-2">
                     <span class="text-base">🛒</span>
                     <span>POS Terminal</span>
                 </button>
-                <button onclick="switchTab('sales')" id="btn-tab-sales" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-300 hover:text-white transition flex items-center space-x-2">
+                <button onclick="switchTab('sales')" id="btn-tab-sales" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition flex items-center space-x-2">
                     <span class="text-base">📊</span>
                     <span>Sales & Analytics</span>
                 </button>
-                <button onclick="switchTab('orders')" id="btn-tab-orders" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-300 hover:text-white transition flex items-center space-x-2">
+                <button onclick="switchTab('orders')" id="btn-tab-orders" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition flex items-center space-x-2">
                     <span class="text-base">🍳</span>
                     <span>Kitchen Pipeline</span>
-                    <span id="badge-active-count" class="bg-emerald-500 text-slate-950 font-black text-xs px-2 py-0.5 rounded-full hidden">0</span>
+                    <span id="badge-active-count" class="bg-emerald-500 text-white dark:text-slate-950 font-black text-xs px-2 py-0.5 rounded-full hidden">0</span>
                 </button>
             </nav>
 
-            <!-- Actions & Clock -->
-            <div class="flex items-center space-x-3">
+            <!-- Actions, Theme Toggle & Clock -->
+            <div class="flex items-center space-x-2.5">
+                <!-- Theme Toggle Button -->
+                <button onclick="toggleTheme()" class="bg-slate-100 hover:bg-slate-200 dark:bg-darkslate-850 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center space-x-1.5 transition shadow-sm" title="Toggle Light / Dark Mode">
+                    <span id="theme-toggle-icon" class="text-sm">☀️</span>
+                    <span id="theme-toggle-text" class="hidden sm:inline">Theme</span>
+                </button>
+
                 <div class="text-right hidden sm:block">
-                    <div id="live-clock" class="text-xs font-mono-num font-extrabold text-slate-200">12:00:00 PM</div>
-                    <div id="live-date" class="text-[11px] text-slate-400 font-semibold">Today</div>
+                    <div id="live-clock" class="text-xs font-mono-num font-extrabold text-slate-800 dark:text-slate-200">12:00:00 PM</div>
+                    <div id="live-date" class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Today</div>
                 </div>
-                <div class="h-7 w-px bg-slate-800 hidden sm:block"></div>
+
+                <div class="h-7 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
+
                 <!-- Live status indicator -->
-                <div class="flex items-center space-x-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-sm shadow-emerald-400"></span>
+                <div class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm"></span>
                     <span class="hidden md:inline">Live Auto-Sync (15s)</span>
                 </div>
+
                 <!-- Export to CSV -->
-                <a href="/api/sales/export" download class="bg-darkslate-850 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition shadow-sm">
+                <a href="/api/sales/export" download class="bg-slate-100 hover:bg-slate-200 dark:bg-darkslate-850 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition shadow-sm">
                     <span>📥</span>
-                    <span>Export CSV</span>
+                    <span class="hidden sm:inline">Export CSV</span>
                 </a>
             </div>
         </div>
@@ -166,103 +203,103 @@ def render_pos_html() -> str:
     <!-- ───────────────────────────────────────────── -->
     <!-- 💰 High-Contrast KPI Cards Bar (Always Visible) -->
     <!-- ───────────────────────────────────────────── -->
-    <div class="bg-darkslate-900/80 border-b border-slate-800/90 px-4 py-3.5">
+    <div class="bg-slate-100/70 dark:bg-darkslate-900/80 border-b border-slate-200 dark:border-slate-800/90 px-4 py-3.5 transition-colors">
         <div class="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3.5">
 
             <!-- Today's Revenue -->
-            <div class="bg-gradient-to-b from-darkslate-850 to-darkslate-900 border border-emerald-500/25 hover:border-emerald-500/50 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
-                <div class="flex items-center justify-between text-xs text-slate-400 mb-1 font-semibold">
+            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-emerald-500/25 dark:border-emerald-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span class="text-emerald-400">💰</span>
+                        <span>💰</span>
                         <span class="uppercase tracking-wider">Today's Sales</span>
                     </span>
-                    <span id="kpi-today-orders" class="bg-emerald-500/15 text-emerald-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
+                    <span id="kpi-today-orders" class="bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
                         0 orders
                     </span>
                 </div>
-                <div class="text-2xl font-black text-emerald-400 font-mono-num tracking-tight" id="kpi-today-rev">
+                <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num tracking-tight" id="kpi-today-rev">
                     Rs. 0
                 </div>
-                <div class="text-[11px] text-slate-400 mt-1 flex items-center justify-between">
-                    <span>Yesterday: <strong id="kpi-yest-rev" class="text-slate-300 font-mono-num font-bold">Rs. 0</strong></span>
-                    <span id="kpi-yest-orders" class="text-slate-400 font-mono-num">(0)</span>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+                    <span>Yesterday: <strong id="kpi-yest-rev" class="text-slate-700 dark:text-slate-300 font-mono-num font-bold">Rs. 0</strong></span>
+                    <span id="kpi-yest-orders" class="text-slate-500 dark:text-slate-400 font-mono-num">(0)</span>
                 </div>
             </div>
 
             <!-- This Month's Revenue -->
-            <div class="bg-gradient-to-b from-darkslate-850 to-darkslate-900 border border-amber-500/25 hover:border-amber-500/50 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
-                <div class="flex items-center justify-between text-xs text-slate-400 mb-1 font-semibold">
+            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-amber-500/25 dark:border-amber-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span class="text-amber-400">📅</span>
+                        <span>📅</span>
                         <span class="uppercase tracking-wider">This Month</span>
                     </span>
-                    <span id="kpi-month-orders" class="bg-amber-500/15 text-amber-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
+                    <span id="kpi-month-orders" class="bg-amber-500/10 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
                         0 orders
                     </span>
                 </div>
-                <div class="text-2xl font-black text-amber-400 font-mono-num tracking-tight" id="kpi-month-rev">
+                <div class="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num tracking-tight" id="kpi-month-rev">
                     Rs. 0
                 </div>
-                <div class="text-[11px] text-slate-400 mt-1">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     Current Calendar Month
                 </div>
             </div>
 
             <!-- Total All-Time Revenue -->
-            <div class="bg-gradient-to-b from-darkslate-850 to-darkslate-900 border border-sky-500/25 hover:border-sky-500/50 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
-                <div class="flex items-center justify-between text-xs text-slate-400 mb-1 font-semibold">
+            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-sky-500/25 dark:border-sky-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span class="text-sky-400">🏆</span>
+                        <span>🏆</span>
                         <span class="uppercase tracking-wider">Total Sales</span>
                     </span>
-                    <span id="kpi-total-orders" class="bg-sky-500/15 text-sky-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
+                    <span id="kpi-total-orders" class="bg-sky-500/10 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
                         0 total
                     </span>
                 </div>
-                <div class="text-2xl font-black text-sky-400 font-mono-num tracking-tight" id="kpi-total-rev">
+                <div class="text-2xl font-black text-sky-600 dark:text-sky-400 font-mono-num tracking-tight" id="kpi-total-rev">
                     Rs. 0
                 </div>
-                <div class="text-[11px] text-slate-400 mt-1">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     WhatsApp + Counter Combined
                 </div>
             </div>
 
             <!-- Average Order Value (AOV) -->
-            <div class="bg-gradient-to-b from-darkslate-850 to-darkslate-900 border border-rose-500/25 hover:border-rose-500/50 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
-                <div class="flex items-center justify-between text-xs text-slate-400 mb-1 font-semibold">
+            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-rose-500/25 dark:border-rose-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span class="text-rose-400">📈</span>
+                        <span>📈</span>
                         <span class="uppercase tracking-wider">Avg Order (AOV)</span>
                     </span>
-                    <span class="bg-rose-500/15 text-rose-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                    <span class="bg-rose-500/10 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
                         Per Ticket
                     </span>
                 </div>
-                <div class="text-2xl font-black text-rose-400 font-mono-num tracking-tight" id="kpi-avg-order">
+                <div class="text-2xl font-black text-rose-600 dark:text-rose-400 font-mono-num tracking-tight" id="kpi-avg-order">
                     Rs. 0
                 </div>
-                <div class="text-[11px] text-slate-400 mt-1">
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                     Average revenue per customer
                 </div>
             </div>
 
             <!-- Sales Channel Quick Split -->
-            <div class="bg-gradient-to-b from-darkslate-850 to-darkslate-900 border border-purple-500/25 hover:border-purple-500/50 rounded-2xl p-3.5 col-span-2 sm:col-span-1 flex flex-col justify-between shadow-sm transition">
-                <div class="flex items-center justify-between text-xs text-slate-400 mb-1 font-semibold">
+            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-purple-500/25 dark:border-purple-500/25 rounded-2xl p-3.5 col-span-2 sm:col-span-1 flex flex-col justify-between shadow-sm transition">
+                <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span class="text-purple-400">🛵</span>
+                        <span>🛵</span>
                         <span class="uppercase tracking-wider">Channels</span>
                     </span>
-                    <span class="text-slate-400 text-[11px]">Breakdown</span>
+                    <span class="text-slate-500 dark:text-slate-400 text-[11px]">Breakdown</span>
                 </div>
                 <div class="space-y-1 mt-1 text-xs font-mono-num">
-                    <div class="flex justify-between items-center text-slate-300">
-                        <span class="text-slate-400">Delivery:</span>
-                        <span id="kpi-delivery-rev" class="font-bold text-emerald-400">Rs. 0</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                        <span class="text-slate-500 dark:text-slate-400">Delivery:</span>
+                        <span id="kpi-delivery-rev" class="font-bold text-emerald-600 dark:text-emerald-400">Rs. 0</span>
                     </div>
-                    <div class="flex justify-between items-center text-slate-300">
-                        <span class="text-slate-400">Counter:</span>
-                        <span id="kpi-counter-rev" class="font-bold text-blue-400">Rs. 0</span>
+                    <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
+                        <span class="text-slate-500 dark:text-slate-400">Counter:</span>
+                        <span id="kpi-counter-rev" class="font-bold text-blue-600 dark:text-blue-400">Rs. 0</span>
                     </div>
                 </div>
             </div>
@@ -285,13 +322,13 @@ def render_pos_html() -> str:
                 <div class="lg:col-span-7 xl:col-span-8 space-y-4">
 
                     <!-- Search and Category Filters -->
-                    <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-4 shadow-md space-y-3.5">
+                    <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3.5 transition-colors">
                         <div class="flex flex-wrap items-center gap-2.5">
                             <div class="relative flex-1 min-w-[220px]">
                                 <input type="text" id="pos-search-input" oninput="filterMenuItems()" placeholder="🔍 Search menu (e.g. Deal 20, Zinger, Tikka, Shawarma)..."
-                                       class="w-full bg-darkslate-950 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500 transition shadow-inner">
+                                       class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 transition shadow-inner">
                             </div>
-                            <button onclick="clearSearch()" class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition">
+                            <button onclick="clearSearch()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition">
                                 Reset
                             </button>
                         </div>
@@ -301,28 +338,28 @@ def render_pos_html() -> str:
                             <button onclick="filterCategory('all')" class="cat-pill active px-3.5 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-sm">
                                 🌟 All Items
                             </button>
-                            <button onclick="filterCategory('deals')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('deals')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🌟 Deals (1-26)
                             </button>
-                            <button onclick="filterCategory('pizza_regular')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('pizza_regular')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🍕 Regular Pizzas
                             </button>
-                            <button onclick="filterCategory('pizza_special')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('pizza_special')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🍕 Special Pizzas
                             </button>
-                            <button onclick="filterCategory('burgers')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('burgers')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🍔 Burgers
                             </button>
-                            <button onclick="filterCategory('shawarma')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('shawarma')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🌯 Shawarma
                             </button>
-                            <button onclick="filterCategory('paratha_rolls')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('paratha_rolls')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🌯 Paratha Rolls
                             </button>
-                            <button onclick="filterCategory('fries')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('fries')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🍟 Fries & Sides
                             </button>
-                            <button onclick="filterCategory('drinks')" class="cat-pill px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('drinks')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
                                 🥤 Drinks
                             </button>
                         </div>
@@ -336,95 +373,95 @@ def render_pos_html() -> str:
 
                 <!-- Right Column: Current POS Order Cart (4 cols) -->
                 <div class="lg:col-span-5 xl:col-span-4 space-y-4">
-                    <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-4 shadow-xl sticky top-20 flex flex-col h-[750px]">
+                    <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-lg sticky top-20 flex flex-col h-[750px] transition-colors">
                         <!-- Cart Header -->
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
                             <div class="flex items-center space-x-2">
                                 <span class="text-xl">🧾</span>
                                 <div>
-                                    <h3 class="font-bold text-white text-sm">Order Terminal</h3>
-                                    <p class="text-[11px] text-slate-400">Cashier Billing Slip</p>
+                                    <h3 class="font-bold text-slate-900 dark:text-white text-sm">Order Terminal</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400">Cashier Billing Slip</p>
                                 </div>
                             </div>
-                            <button onclick="clearCart()" class="text-xs text-rose-400 hover:text-rose-300 font-bold px-2.5 py-1 rounded-lg hover:bg-rose-950/30 transition">
+                            <button onclick="clearCart()" class="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-bold px-2.5 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
                                 Clear Cart
                             </button>
                         </div>
 
                         <!-- Customer & Order Meta Inputs -->
-                        <div class="py-3 space-y-2.5 border-b border-slate-800/90 text-xs">
+                        <div class="py-3 space-y-2.5 border-b border-slate-200 dark:border-slate-800/90 text-xs">
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-[11px] text-slate-400 font-semibold block mb-0.5">Customer Name</label>
+                                    <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Customer Name</label>
                                     <input type="text" id="cart-customer-name" placeholder="Walk-in Customer"
-                                           class="w-full bg-darkslate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500">
+                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500">
                                 </div>
                                 <div>
-                                    <label class="text-[11px] text-slate-400 font-semibold block mb-0.5">Phone Number</label>
+                                    <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Phone Number</label>
                                     <input type="text" id="cart-customer-phone" placeholder="0300-1234567"
-                                           class="w-full bg-darkslate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500">
+                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500">
                                 </div>
                             </div>
 
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="text-[11px] text-slate-400 font-semibold block mb-0.5">Order Type</label>
+                                    <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Order Type</label>
                                     <select id="cart-order-type" onchange="handleOrderTypeChange()"
-                                            class="w-full bg-darkslate-950 border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-semibold focus:outline-none focus:border-rose-500">
+                                            class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-rose-500">
                                         <option value="counter">🛍️ Counter / Takeaway</option>
                                         <option value="dine_in">🍽️ Dine-in (Table)</option>
                                         <option value="delivery">🛵 WhatsApp Delivery</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="text-[11px] text-slate-400 font-semibold block mb-0.5">Location / Table</label>
+                                    <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Location / Table</label>
                                     <input type="text" id="cart-address" placeholder="Table # / Address"
-                                           class="w-full bg-darkslate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-rose-500">
+                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500">
                                 </div>
                             </div>
 
                             <div>
-                                <label class="text-[11px] text-amber-300 font-semibold block mb-0.5">📝 Special Customer Note</label>
+                                <label class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold block mb-0.5">📝 Special Customer Note</label>
                                 <input type="text" id="cart-special-notes" placeholder="e.g. Cheese kam, Extra spicy, Kam sauce"
-                                       class="w-full bg-darkslate-950 border border-amber-500/40 rounded-xl px-3 py-1.5 text-xs text-amber-200 placeholder-amber-400/40 focus:outline-none focus:border-amber-400">
+                                       class="w-full bg-slate-50 dark:bg-darkslate-950 border border-amber-500/30 dark:border-amber-500/40 rounded-xl px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 placeholder-amber-400/60 focus:outline-none focus:border-amber-500">
                             </div>
                         </div>
 
                         <!-- Cart Items Scroll Area -->
                         <div id="cart-items-container" class="flex-1 overflow-y-auto py-2.5 space-y-2 pr-1">
-                            <div class="text-center py-16 text-slate-500 text-xs font-medium">
+                            <div class="text-center py-16 text-slate-400 dark:text-slate-500 text-xs font-medium">
                                 Cart is empty.<br>Click any item from the menu catalog to add!
                             </div>
                         </div>
 
                         <!-- Cart Totals & Place Order -->
-                        <div class="pt-3 border-t border-slate-800 space-y-2">
-                            <div class="flex justify-between text-xs text-slate-400 font-medium">
+                        <div class="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                            <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
                                 <span>Food Subtotal</span>
-                                <span class="font-mono-num font-bold text-slate-200" id="cart-subtotal">Rs. 0</span>
+                                <span class="font-mono-num font-bold text-slate-800 dark:text-slate-200" id="cart-subtotal">Rs. 0</span>
                             </div>
-                            <div class="flex justify-between text-xs text-slate-400 items-center font-medium">
+                            <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 items-center font-medium">
                                 <span>Delivery Fee (Rs.)</span>
                                 <input type="number" id="cart-delivery-fee" value="0" min="0" oninput="calculateCartTotal()"
-                                       class="w-20 bg-darkslate-950 border border-slate-700 text-right px-2 py-0.5 rounded-lg text-xs text-slate-200 font-mono-num font-bold">
+                                       class="w-20 bg-slate-50 dark:bg-darkslate-950 border border-slate-300 dark:border-slate-700 text-right px-2 py-0.5 rounded-lg text-xs text-slate-900 dark:text-slate-200 font-mono-num font-bold">
                             </div>
-                            <div class="flex justify-between text-xs text-slate-400 items-center font-medium">
+                            <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 items-center font-medium">
                                 <span>Discount (Rs.)</span>
                                 <input type="number" id="cart-discount" value="0" min="0" oninput="calculateCartTotal()"
-                                       class="w-20 bg-darkslate-950 border border-slate-700 text-right px-2 py-0.5 rounded-lg text-xs text-slate-200 font-mono-num font-bold">
+                                       class="w-20 bg-slate-50 dark:bg-darkslate-950 border border-slate-300 dark:border-slate-700 text-right px-2 py-0.5 rounded-lg text-xs text-slate-900 dark:text-slate-200 font-mono-num font-bold">
                             </div>
-                            <div class="flex justify-between items-center text-sm font-bold text-white pt-2.5 border-t border-slate-800/80">
-                                <span class="text-slate-300">Net Total Bill:</span>
-                                <span class="text-2xl font-black text-emerald-400 font-mono-num" id="cart-net-total">Rs. 0</span>
+                            <div class="flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white pt-2.5 border-t border-slate-200 dark:border-slate-800/80">
+                                <span class="text-slate-600 dark:text-slate-300">Net Total Bill:</span>
+                                <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="cart-net-total">Rs. 0</span>
                             </div>
 
                             <!-- Actions -->
                             <div class="grid grid-cols-2 gap-2.5 pt-2">
-                                <button onclick="submitPosOrder(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+                                <button onclick="submitPosOrder(false)" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
                                     <span>💾</span>
                                     <span>Record Order</span>
                                 </button>
-                                <button onclick="submitPosOrder(true)" class="bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg shadow-rose-900/50 flex items-center justify-center space-x-1.5">
+                                <button onclick="submitPosOrder(true)" class="bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg shadow-rose-900/30 flex items-center justify-center space-x-1.5">
                                     <span>🖨️</span>
                                     <span>Place & Print</span>
                                 </button>
@@ -438,57 +475,57 @@ def render_pos_html() -> str:
         </div>
 
         <!-- ───────────────────────────────────────────── -->
-        <!-- 📊 TAB 2: SALES & INCOME ANALYTICS (EASY READABLE) -->
+        <!-- 📊 TAB 2: SALES & INCOME ANALYTICS -->
         <!-- ───────────────────────────────────────────── -->
         <div id="tab-content-sales" class="hidden space-y-6">
 
             <!-- Financial Health Summary Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Net Revenue -->
-                <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/25">
+                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/20">
                         💰
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-400 tracking-wider">Gross Income</div>
-                        <div class="text-xl font-black text-emerald-400 font-mono-num" id="analytics-total-rev">Rs. 0</div>
-                        <div class="text-[11px] text-slate-400">All Completed Orders</div>
+                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Gross Income</div>
+                        <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="analytics-total-rev">Rs. 0</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400">All Completed Orders</div>
                     </div>
                 </div>
 
                 <!-- WhatsApp Orders Revenue -->
-                <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-300 flex items-center justify-center text-2xl border border-emerald-500/25">
+                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-2xl border border-emerald-500/20">
                         🛵
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-400 tracking-wider">WhatsApp Delivery</div>
-                        <div class="text-xl font-black text-emerald-300 font-mono-num" id="analytics-wa-rev">Rs. 0</div>
-                        <div class="text-[11px] text-slate-400" id="analytics-wa-orders">0 orders</div>
+                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">WhatsApp Delivery</div>
+                        <div class="text-xl font-black text-emerald-600 dark:text-emerald-300 font-mono-num" id="analytics-wa-rev">Rs. 0</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-wa-orders">0 orders</div>
                     </div>
                 </div>
 
                 <!-- Counter & Dine-in Revenue -->
-                <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-sky-500/15 text-sky-400 flex items-center justify-center text-2xl border border-sky-500/25">
+                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
+                    <div class="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center text-2xl border border-sky-500/20">
                         🛍️
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-400 tracking-wider">Counter & Dine-in</div>
-                        <div class="text-xl font-black text-sky-400 font-mono-num" id="analytics-counter-rev">Rs. 0</div>
-                        <div class="text-[11px] text-slate-400" id="analytics-counter-orders">0 orders</div>
+                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Counter & Dine-in</div>
+                        <div class="text-xl font-black text-sky-600 dark:text-sky-400 font-mono-num" id="analytics-counter-rev">Rs. 0</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-counter-orders">0 orders</div>
                     </div>
                 </div>
 
                 <!-- Success Rate -->
-                <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-400 flex items-center justify-center text-2xl border border-amber-500/25">
+                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl border border-amber-500/20">
                         🎯
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-400 tracking-wider">Order Completion</div>
-                        <div class="text-xl font-black text-amber-400 font-mono-num" id="analytics-completion-rate">100%</div>
-                        <div class="text-[11px] text-slate-400" id="analytics-active-ratio">0 active now</div>
+                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Order Completion</div>
+                        <div class="text-xl font-black text-amber-600 dark:text-amber-400 font-mono-num" id="analytics-completion-rate">100%</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-active-ratio">0 active now</div>
                     </div>
                 </div>
             </div>
@@ -496,16 +533,16 @@ def render_pos_html() -> str:
             <!-- Charts Row -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <!-- Daily Sales Bar/Area Chart (30 Days) -->
-                <div class="lg:col-span-8 bg-darkslate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                <div class="lg:col-span-8 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 transition-colors">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
-                            <h3 class="font-extrabold text-white text-base flex items-center space-x-2">
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                                 <span>📈</span>
                                 <span>Daily Sales Revenue & Volume Trend</span>
                             </h3>
-                            <p class="text-xs text-slate-400">Interactive revenue (PKR) and order count over the last 30 days</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Interactive revenue (PKR) and order count over the last 30 days</p>
                         </div>
-                        <span class="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl font-mono-num font-bold">
+                        <span class="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-xl font-mono-num font-bold">
                             ● Unified Daily Tracking
                         </span>
                     </div>
@@ -515,18 +552,18 @@ def render_pos_html() -> str:
                 </div>
 
                 <!-- Channel & Order Distribution Doughnut Chart -->
-                <div class="lg:col-span-4 bg-darkslate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
+                <div class="lg:col-span-4 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
                     <div>
-                        <h3 class="font-extrabold text-white text-base flex items-center space-x-2">
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                             <span>🥧</span>
-                            <span>Sales by Channel & Status</span>
+                            <span>Sales by Channel</span>
                         </h3>
-                        <p class="text-xs text-slate-400">Where revenue comes from</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Where revenue comes from</p>
                     </div>
                     <div class="h-56 flex items-center justify-center relative">
                         <canvas id="statusChart"></canvas>
                     </div>
-                    <div id="status-legend" class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-800/80">
+                    <div id="status-legend" class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200 dark:border-slate-800/80">
                         <!-- Populated by JS -->
                     </div>
                 </div>
@@ -535,16 +572,16 @@ def render_pos_html() -> str:
             <!-- Leaderboard & Pipeline Breakdown -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <!-- Top 10 Selling Items Leaderboard -->
-                <div class="lg:col-span-6 bg-darkslate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
+                <div class="lg:col-span-6 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 transition-colors">
                     <div class="flex items-center justify-between">
                         <div>
-                            <h3 class="font-extrabold text-white text-base flex items-center space-x-2">
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                                 <span>🏆</span>
                                 <span>Top Selling Menu Items</span>
                             </h3>
-                            <p class="text-xs text-slate-400">Most ordered deals & food items</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Most ordered deals & food items</p>
                         </div>
-                        <span class="text-xs text-slate-400 font-semibold">Rank by Qty</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 font-semibold">Rank by Qty</span>
                     </div>
 
                     <div class="space-y-3" id="top-items-container">
@@ -553,14 +590,14 @@ def render_pos_html() -> str:
                 </div>
 
                 <!-- Pipeline Status Progress & Accounting Info -->
-                <div class="lg:col-span-6 bg-darkslate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
+                <div class="lg:col-span-6 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
                     <div class="space-y-4">
                         <div>
-                            <h3 class="font-extrabold text-white text-base flex items-center space-x-2">
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                                 <span>🍳</span>
                                 <span>Kitchen Pipeline Status</span>
                             </h3>
-                            <p class="text-xs text-slate-400">Current workflow breakdown</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Current workflow breakdown</p>
                         </div>
 
                         <div class="space-y-2.5 text-xs" id="status-bars-container">
@@ -569,15 +606,15 @@ def render_pos_html() -> str:
                     </div>
 
                     <!-- Direct Excel / CSV Export Banner -->
-                    <div class="bg-darkslate-950 p-4 rounded-xl border border-slate-800 space-y-2 mt-4">
+                    <div class="bg-slate-50 dark:bg-darkslate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 mt-4">
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-200">Financial Reporting & Accounting</span>
-                            <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono-num font-bold">CSV / Excel</span>
+                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Financial Reporting & Accounting</span>
+                            <span class="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded font-mono-num font-bold">CSV / Excel</span>
                         </div>
-                        <p class="text-[11px] text-slate-400 leading-relaxed">
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                             Export every single recorded order with timestamps, customer names, phone numbers, items, special notes, and amounts.
                         </p>
-                        <a href="/api/sales/export" download class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-lg shadow-emerald-950">
+                        <a href="/api/sales/export" download class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-md">
                             <span>📥</span>
                             <span>Download All Sales History (.CSV)</span>
                         </a>
@@ -586,21 +623,21 @@ def render_pos_html() -> str:
             </div>
 
             <!-- Recent Completed Sales Ledger Table -->
-            <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+            <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3 transition-colors">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h3 class="font-extrabold text-white text-base flex items-center space-x-2">
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                             <span>📑</span>
                             <span>Recent Sales Transactions Ledger</span>
                         </h3>
-                        <p class="text-xs text-slate-400">Last 50 customer orders</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Last 50 customer orders</p>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead>
-                            <tr class="text-slate-400 border-b border-slate-800 font-bold uppercase tracking-wider text-[11px]">
+                            <tr class="text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-[11px]">
                                 <th class="py-2.5 px-2">Order ID</th>
                                 <th class="py-2.5 px-2">Time</th>
                                 <th class="py-2.5 px-2">Customer</th>
@@ -610,7 +647,7 @@ def render_pos_html() -> str:
                                 <th class="py-2.5 px-2 text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody id="sales-ledger-tbody" class="divide-y divide-slate-800/60 font-medium">
+                        <tbody id="sales-ledger-tbody" class="divide-y divide-slate-200 dark:divide-slate-800/60 font-medium">
                             <!-- Populated by JS -->
                         </tbody>
                     </table>
@@ -625,30 +662,30 @@ def render_pos_html() -> str:
         <div id="tab-content-orders" class="hidden space-y-4">
 
             <!-- Filter Status Bar -->
-            <div class="bg-darkslate-900 border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
+            <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-sm transition-colors">
                 <div class="flex items-center space-x-2 overflow-x-auto pb-1" id="order-status-filters">
                     <button onclick="filterOrderStatus('all')" class="status-filter-btn active px-3.5 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-sm">
                         All Orders
                     </button>
-                    <button onclick="filterOrderStatus('pending')" class="status-filter-btn px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('pending')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
                         🟡 Pending
                     </button>
-                    <button onclick="filterOrderStatus('preparing')" class="status-filter-btn px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('preparing')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sky-700 dark:text-sky-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
                         🔵 Preparing
                     </button>
-                    <button onclick="filterOrderStatus('out_for_delivery')" class="status-filter-btn px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-purple-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('out_for_delivery')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-purple-700 dark:text-purple-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
                         🟣 Out for Delivery
                     </button>
-                    <button onclick="filterOrderStatus('completed')" class="status-filter-btn px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('completed')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
                         🟢 Completed
                     </button>
-                    <button onclick="filterOrderStatus('cancelled')" class="status-filter-btn px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('cancelled')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
                         🔴 Cancelled
                     </button>
                 </div>
 
-                <div class="text-xs text-slate-400 font-semibold">
-                    Showing <span id="orders-count-label" class="text-white font-bold font-mono-num">0</span> orders
+                <div class="text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                    Showing <span id="orders-count-label" class="text-slate-900 dark:text-white font-bold font-mono-num">0</span> orders
                 </div>
             </div>
 
@@ -691,7 +728,7 @@ def render_pos_html() -> str:
     </div>
 
     <!-- ───────────────────────────────────────────── -->
-    <!-- ⚡ JAVASCRIPT LOGIC & VISUAL DATA BINDING -->
+    <!-- ⚡ JAVASCRIPT LOGIC & THEME SWITCHER -->
     <!-- ───────────────────────────────────────────── -->
     <script>
         // State
@@ -706,6 +743,7 @@ def render_pos_html() -> str:
         let statusChartInstance = null;
 
         function initApp() {
+            initTheme();
             startClock();
             fetchMenuData();
             fetchSalesStatsAndOrders();
@@ -716,6 +754,36 @@ def render_pos_html() -> str:
             document.addEventListener('DOMContentLoaded', initApp);
         } else {
             initApp();
+        }
+
+        // ─────────────────────────────────────────────
+        // ☀️ / 🌙 Theme Toggle Logic
+        // ─────────────────────────────────────────────
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('cherry_theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+            if (!document.getElementById('tab-content-sales').classList.contains('hidden')) {
+                renderSalesCharts();
+            }
+        }
+
+        function updateThemeIcon(isDark) {
+            const iconEl = document.getElementById('theme-toggle-icon');
+            const textEl = document.getElementById('theme-toggle-text');
+            if (iconEl) iconEl.innerText = isDark ? '☀️' : '🌙';
+            if (textEl) textEl.innerText = isDark ? 'Light' : 'Dark';
+        }
+
+        function initTheme() {
+            const saved = localStorage.getItem('cherry_theme');
+            const isDark = saved ? saved === 'dark' : true;
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+            updateThemeIcon(isDark);
         }
 
         function startClock() {
@@ -765,10 +833,10 @@ def render_pos_html() -> str:
             currentCategory = cat;
             document.querySelectorAll('#category-pills button').forEach(b => {
                 b.classList.remove('active', 'bg-rose-600', 'text-white');
-                b.classList.add('bg-slate-800', 'text-slate-300');
+                b.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300');
             });
             event.target.classList.add('active', 'bg-rose-600', 'text-white');
-            event.target.classList.remove('bg-slate-800', 'text-slate-300');
+            event.target.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300');
             renderMenuItems();
         }
 
@@ -812,9 +880,8 @@ def render_pos_html() -> str:
 
             filtered.forEach(item => {
                 const card = document.createElement('div');
-                card.className = "bg-darkslate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition flex flex-col justify-between group";
+                card.className = "bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition flex flex-col justify-between group";
 
-                // Split title if parenthetical components exist (e.g. Deal 1 (1 Small Pizza + 1 Zinger...))
                 let title = item.name;
                 let subtext = "";
                 if (item.name.indexOf('(') !== -1 && item.name.indexOf(')') !== -1) {
@@ -831,16 +898,16 @@ def render_pos_html() -> str:
                         <div class="flex items-start justify-between gap-1 mb-1.5">
                             <div class="flex items-center space-x-1.5">
                                 <span class="text-base">${icon}</span>
-                                <h4 class="text-xs font-bold text-slate-100 group-hover:text-rose-400 transition leading-snug">${title}</h4>
+                                <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition leading-snug">${title}</h4>
                             </div>
                         </div>
-                        ${subtext ? `<p class="text-[11px] text-slate-400 mb-2 leading-tight">${subtext}</p>` : ''}
-                        <span class="text-[10px] text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md font-medium">${item.category_name || item.category}</span>
+                        ${subtext ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2 leading-tight">${subtext}</p>` : ''}
+                        <span class="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md font-medium">${item.category_name || item.category}</span>
                     </div>
-                    <div class="mt-3.5 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
-                        <span class="text-sm font-black text-emerald-400 font-mono-num">Rs. ${item.price}</span>
+                    <div class="mt-3.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                        <span class="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono-num">Rs. ${item.price}</span>
                         <button onclick="addToCart('${item.id}', '${escapeHtml(item.name)}', ${item.price})"
-                                class="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl transition shadow-md shadow-rose-950 flex items-center space-x-1">
+                                class="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl transition shadow-md shadow-rose-950/20 flex items-center space-x-1">
                             <span>+ Add</span>
                         </button>
                     </div>
@@ -907,26 +974,26 @@ def render_pos_html() -> str:
             container.innerHTML = '';
 
             if (cart.length === 0) {
-                container.innerHTML = `<div class="text-center py-16 text-slate-500 text-xs font-medium">Cart is empty.<br>Click any item from the menu catalog to add!</div>`;
+                container.innerHTML = `<div class="text-center py-16 text-slate-400 dark:text-slate-500 text-xs font-medium">Cart is empty.<br>Click any item from the menu catalog to add!</div>`;
                 calculateCartTotal();
                 return;
             }
 
             cart.forEach(item => {
                 const row = document.createElement('div');
-                row.className = "bg-darkslate-950 border border-slate-800 rounded-xl p-2.5 flex items-center justify-between text-xs";
+                row.className = "bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 flex items-center justify-between text-xs";
                 const totalItemPrice = item.price * item.qty;
 
                 row.innerHTML = `
                     <div class="flex-1 pr-2 min-w-0">
-                        <div class="font-bold text-slate-100 truncate">${item.name}</div>
-                        <div class="text-[11px] text-slate-400 font-mono-num">Rs. ${item.price} × ${item.qty} = <span class="text-emerald-400 font-bold">Rs. ${totalItemPrice}</span></div>
+                        <div class="font-bold text-slate-900 dark:text-slate-100 truncate">${item.name}</div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono-num">Rs. ${item.price} × ${item.qty} = <span class="text-emerald-600 dark:text-emerald-400 font-bold">Rs. ${totalItemPrice}</span></div>
                     </div>
                     <div class="flex items-center space-x-1.5 shrink-0">
-                        <button onclick="updateCartQty('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center">-</button>
-                        <span class="font-mono-num font-bold text-xs w-4 text-center text-white">${item.qty}</span>
-                        <button onclick="updateCartQty('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center">+</button>
-                        <button onclick="removeCartItem('${item.id}')" class="text-rose-400 hover:text-rose-300 ml-1.5 font-bold text-sm">✕</button>
+                        <button onclick="updateCartQty('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center">-</button>
+                        <span class="font-mono-num font-bold text-xs w-4 text-center text-slate-900 dark:text-white">${item.qty}</span>
+                        <button onclick="updateCartQty('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center">+</button>
+                        <button onclick="removeCartItem('${item.id}')" class="text-rose-600 dark:text-rose-400 hover:text-rose-700 ml-1.5 font-bold text-sm">✕</button>
                     </div>
                 `;
                 container.appendChild(row);
@@ -959,7 +1026,7 @@ def render_pos_html() -> str:
             const address = document.getElementById('cart-address').value.trim() || (orderType === 'dine_in' ? 'Dine-in Table' : 'Counter Takeaway');
             const specialNotes = document.getElementById('cart-special-notes').value.trim();
 
-            const itemsList = cart.map(i => `• ${i.qty}x ${i.name} — Rs. ${i.price * i.qty}`).join('\\n');
+            const itemsList = cart.map(i => `• ${i.qty}x ${i.name} — Rs. ${i.price * i.qty}`).join(String.fromCharCode(10));
 
             const payload = {
                 customer_name: customerName,
@@ -1054,7 +1121,6 @@ def render_pos_html() -> str:
         }
 
         function renderAnalyticsView(stats) {
-            // 1. Financial cards
             const tot = stats.total_revenue || 0;
             const ch = stats.channel_stats || {};
             const delData = ch.delivery || { count: 0, revenue: 0 };
@@ -1081,7 +1147,7 @@ def render_pos_html() -> str:
             document.getElementById('analytics-completion-rate').innerText = `${rate}%`;
             document.getElementById('analytics-active-ratio').innerText = `${active} orders active now`;
 
-            // 2. Leaderboard with visual ranking and progress bars
+            // Top items leaderboard
             const topContainer = document.getElementById('top-items-container');
             topContainer.innerHTML = '';
             const topList = stats.top_items || [];
@@ -1093,16 +1159,16 @@ def render_pos_html() -> str:
                     const pct = Math.round((it.count / maxCount) * 100);
                     const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
                     const row = document.createElement('div');
-                    row.className = "bg-darkslate-950 p-2.5 rounded-xl border border-slate-800 space-y-1.5";
+                    row.className = "bg-slate-50 dark:bg-darkslate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5";
                     row.innerHTML = `
                         <div class="flex items-center justify-between text-xs font-semibold">
-                            <span class="flex items-center space-x-2 text-slate-200">
-                                <span class="font-extrabold text-amber-400 w-5 text-center">${medal}</span>
+                            <span class="flex items-center space-x-2 text-slate-800 dark:text-slate-200">
+                                <span class="font-extrabold text-amber-500 w-5 text-center">${medal}</span>
                                 <span>${it.name}</span>
                             </span>
-                            <span class="font-bold text-emerald-400 font-mono-num">${it.count} sold</span>
+                            <span class="font-bold text-emerald-600 dark:text-emerald-400 font-mono-num">${it.count} sold</span>
                         </div>
-                        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                             <div class="bg-gradient-to-r from-rose-500 to-amber-400 h-full rounded-full" style="width: ${pct}%"></div>
                         </div>
                     `;
@@ -1110,7 +1176,7 @@ def render_pos_html() -> str:
                 });
             }
 
-            // 3. Status Progress Bars
+            // Status Progress Bars
             const statusContainer = document.getElementById('status-bars-container');
             statusContainer.innerHTML = '';
             const statusMeta = [
@@ -1127,37 +1193,36 @@ def render_pos_html() -> str:
                 el.className = "space-y-1";
                 el.innerHTML = `
                     <div class="flex justify-between text-xs font-semibold">
-                        <span class="text-slate-300">${sm.label}</span>
-                        <span class="font-mono-num text-slate-200 font-bold">${sm.count} (${pct}%)</span>
+                        <span class="text-slate-700 dark:text-slate-300">${sm.label}</span>
+                        <span class="font-mono-num text-slate-900 dark:text-slate-200 font-bold">${sm.count} (${pct}%)</span>
                     </div>
-                    <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div class="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
                         <div class="bg-gradient-to-r ${sm.color} h-full rounded-full" style="width: ${pct}%"></div>
                     </div>
                 `;
                 statusContainer.appendChild(el);
             });
 
-            // 4. Sales Ledger Table
+            // Sales Ledger Table
             const tbody = document.getElementById('sales-ledger-tbody');
             tbody.innerHTML = '';
             (allOrders || []).slice(0, 30).forEach(order => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-800/40 transition";
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40 transition";
                 const channelBadge = {
-                    delivery: '<span class="text-emerald-400">🛵 WhatsApp</span>',
-                    counter: '<span class="text-blue-400">🛍️ Counter</span>',
-                    dine_in: '<span class="text-amber-400">🍽️ Dine-in</span>'
+                    delivery: '<span class="text-emerald-600 dark:text-emerald-400 font-bold">🛵 WhatsApp</span>',
+                    counter: '<span class="text-blue-600 dark:text-blue-400 font-bold">🛍️ Counter</span>',
+                    dine_in: '<span class="text-amber-600 dark:text-amber-400 font-bold">🍽️ Dine-in</span>'
                 }[order.order_type] || order.order_type;
 
                 const statusColor = {
-                    completed: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-                    preparing: 'text-sky-400 bg-sky-500/10 border-sky-500/20',
-                    pending: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-                    out_for_delivery: 'text-purple-400 bg-purple-500/10 border-purple-500/20',
-                    cancelled: 'text-rose-400 bg-rose-500/10 border-rose-500/20'
-                }[order.status] || 'text-slate-300';
+                    completed: 'text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+                    preparing: 'text-sky-700 dark:text-sky-400 bg-sky-500/10 border-sky-500/20',
+                    pending: 'text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
+                    out_for_delivery: 'text-purple-700 dark:text-purple-400 bg-purple-500/10 border-purple-500/20',
+                    cancelled: 'text-rose-700 dark:text-rose-400 bg-rose-500/10 border-rose-500/20'
+                }[order.status] || 'text-slate-500';
 
-                // Truncate item text for clean table presentation
                 const rawItems = order.items_list || order.slip || '';
                 const itemsSummary = rawItems
                     .split(String.fromCharCode(10)).join(', ')
@@ -1166,12 +1231,12 @@ def render_pos_html() -> str:
                     .trim();
 
                 tr.innerHTML = `
-                    <td class="py-2.5 px-2 font-mono-num font-bold text-sky-400">${order.order_id}</td>
-                    <td class="py-2.5 px-2 text-slate-400 text-[11px] font-mono-num">${order.formatted_time || order.timestamp || '-'}</td>
-                    <td class="py-2.5 px-2 text-slate-200 font-semibold">${order.customer_name}</td>
+                    <td class="py-2.5 px-2 font-mono-num font-bold text-sky-600 dark:text-sky-400">${order.order_id}</td>
+                    <td class="py-2.5 px-2 text-slate-500 dark:text-slate-400 text-[11px] font-mono-num">${order.formatted_time || order.timestamp || '-'}</td>
+                    <td class="py-2.5 px-2 text-slate-900 dark:text-slate-200 font-semibold">${order.customer_name}</td>
                     <td class="py-2.5 px-2 text-[11px] font-semibold">${channelBadge}</td>
-                    <td class="py-2.5 px-2 text-slate-300 max-w-xs truncate">${itemsSummary || 'Order Items'}</td>
-                    <td class="py-2.5 px-2 text-right font-mono-num font-extrabold text-emerald-400">Rs. ${order.total}</td>
+                    <td class="py-2.5 px-2 text-slate-600 dark:text-slate-300 max-w-xs truncate">${itemsSummary || 'Order Items'}</td>
+                    <td class="py-2.5 px-2 text-right font-mono-num font-extrabold text-emerald-600 dark:text-emerald-400">Rs. ${order.total}</td>
                     <td class="py-2.5 px-2 text-center">
                         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor}">
                             ${order.status}
@@ -1185,7 +1250,13 @@ def render_pos_html() -> str:
         function renderSalesCharts() {
             if (!salesStats || !salesStats.daily_breakdown) return;
 
-            // 1. Enhanced Daily Sales Area & Bar Chart
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? 'rgba(51, 65, 85, 0.25)' : 'rgba(203, 213, 225, 0.6)';
+            const tickColor = isDark ? '#94a3b8' : '#475569';
+            const tickYColor = isDark ? '#cbd5e1' : '#1e293b';
+            const legendColor = isDark ? '#f1f5f9' : '#0f172a';
+
+            // 1. Daily Sales Area & Bar Chart
             const trendCtx = document.getElementById('salesTrendChart')?.getContext('2d');
             if (trendCtx) {
                 const labels = salesStats.daily_breakdown.map(d => {
@@ -1198,7 +1269,7 @@ def render_pos_html() -> str:
                 if (salesChartInstance) salesChartInstance.destroy();
 
                 const gradientRev = trendCtx.createLinearGradient(0, 0, 0, 300);
-                gradientRev.addColorStop(0, 'rgba(225, 29, 72, 0.45)');
+                gradientRev.addColorStop(0, isDark ? 'rgba(225, 29, 72, 0.45)' : 'rgba(225, 29, 72, 0.25)');
                 gradientRev.addColorStop(1, 'rgba(225, 29, 72, 0.0)');
 
                 salesChartInstance = new Chart(trendCtx, {
@@ -1236,16 +1307,16 @@ def render_pos_html() -> str:
                         interaction: { mode: 'index', intersect: false },
                         scales: {
                             x: {
-                                grid: { color: 'rgba(51, 65, 85, 0.25)' },
-                                ticks: { color: '#94a3b8', font: { size: 11, weight: '600' } }
+                                grid: { color: gridColor },
+                                ticks: { color: tickColor, font: { size: 11, weight: '600' } }
                             },
                             y: {
                                 type: 'linear',
                                 display: true,
                                 position: 'left',
-                                grid: { color: 'rgba(51, 65, 85, 0.25)' },
+                                grid: { color: gridColor },
                                 ticks: {
-                                    color: '#cbd5e1',
+                                    color: tickYColor,
                                     font: { size: 11, family: 'JetBrains Mono', weight: '700' },
                                     callback: v => 'Rs. ' + v.toLocaleString()
                                 }
@@ -1264,13 +1335,13 @@ def render_pos_html() -> str:
                         },
                         plugins: {
                             legend: {
-                                labels: { color: '#f1f5f9', font: { size: 12, weight: '700' } }
+                                labels: { color: legendColor, font: { size: 12, weight: '700' } }
                             },
                             tooltip: {
-                                backgroundColor: '#0f172a',
-                                titleColor: '#ffffff',
-                                bodyColor: '#cbd5e1',
-                                borderColor: '#334155',
+                                backgroundColor: isDark ? '#0f172a' : '#ffffff',
+                                titleColor: isDark ? '#ffffff' : '#0f172a',
+                                bodyColor: isDark ? '#cbd5e1' : '#334155',
+                                borderColor: isDark ? '#334155' : '#cbd5e1',
                                 borderWidth: 1,
                                 padding: 10,
                                 callbacks: {
@@ -1307,7 +1378,7 @@ def render_pos_html() -> str:
                         datasets: [{
                             data: chValues,
                             backgroundColor: chColors,
-                            borderColor: '#0f172a',
+                            borderColor: isDark ? '#0f172a' : '#ffffff',
                             borderWidth: 3,
                             hoverOffset: 6
                         }]
@@ -1322,17 +1393,16 @@ def render_pos_html() -> str:
                     }
                 });
 
-                // Status Legend HTML
                 const legendEl = document.getElementById('status-legend');
                 legendEl.innerHTML = '';
                 chLabels.forEach((label, idx) => {
                     const rev = chValues[idx];
                     legendEl.innerHTML += `
-                        <div class="bg-darkslate-950 p-2 rounded-xl border border-slate-800 flex items-center space-x-2">
+                        <div class="bg-slate-50 dark:bg-darkslate-950 p-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center space-x-2">
                             <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${chColors[idx]}"></span>
                             <div class="min-w-0">
-                                <span class="text-slate-300 block text-[11px] font-semibold truncate">${label}</span>
-                                <span class="font-extrabold text-white font-mono-num text-xs">Rs. ${rev.toLocaleString()}</span>
+                                <span class="text-slate-600 dark:text-slate-300 block text-[11px] font-semibold truncate">${label}</span>
+                                <span class="font-extrabold text-slate-900 dark:text-white font-mono-num text-xs">Rs. ${rev.toLocaleString()}</span>
                             </div>
                         </div>
                     `;
@@ -1347,10 +1417,10 @@ def render_pos_html() -> str:
             activeOrderStatusFilter = status;
             document.querySelectorAll('.status-filter-btn').forEach(b => {
                 b.classList.remove('active', 'bg-rose-600', 'text-white');
-                b.classList.add('bg-slate-800', 'text-slate-300');
+                b.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300');
             });
             event.target.classList.add('active', 'bg-rose-600', 'text-white');
-            event.target.classList.remove('bg-slate-800', 'text-slate-300');
+            event.target.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300');
             renderOrdersPipeline();
         }
 
@@ -1366,76 +1436,76 @@ def render_pos_html() -> str:
             document.getElementById('orders-count-label').innerText = filtered.length;
 
             if (filtered.length === 0) {
-                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-500 text-sm">No orders found in this category.</div>`;
+                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-400 dark:text-slate-500 text-sm">No orders found in this category.</div>`;
                 return;
             }
 
             filtered.forEach(order => {
                 const card = document.createElement('div');
                 const statusBorder = {
-                    pending: 'border-l-4 border-l-amber-400',
-                    preparing: 'border-l-4 border-l-sky-400',
-                    out_for_delivery: 'border-l-4 border-l-purple-400',
-                    completed: 'border-l-4 border-l-emerald-400',
+                    pending: 'border-l-4 border-l-amber-500',
+                    preparing: 'border-l-4 border-l-sky-500',
+                    out_for_delivery: 'border-l-4 border-l-purple-500',
+                    completed: 'border-l-4 border-l-emerald-500',
                     cancelled: 'border-l-4 border-l-rose-500'
-                }[order.status] || 'border-l-4 border-l-slate-600';
+                }[order.status] || 'border-l-4 border-l-slate-400';
 
                 const statusBadge = {
-                    pending: '<span class="bg-amber-400/15 text-amber-300 border border-amber-400/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🟡 Pending</span>',
-                    preparing: '<span class="bg-sky-400/15 text-sky-300 border border-sky-400/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🔵 Preparing</span>',
-                    out_for_delivery: '<span class="bg-purple-400/15 text-purple-300 border border-purple-400/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🟣 Out for Delivery</span>',
-                    completed: '<span class="bg-emerald-400/15 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🟢 Completed</span>',
-                    cancelled: '<span class="bg-rose-500/15 text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🔴 Cancelled</span>'
-                }[order.status] || `<span class="bg-slate-700 text-slate-300 text-[10px] px-2 py-0.5 rounded">${order.status}</span>`;
+                    pending: '<span class="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🟡 Pending</span>',
+                    preparing: '<span class="bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🔵 Preparing</span>',
+                    out_for_delivery: '<span class="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🟣 Out for Delivery</span>',
+                    completed: '<span class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🟢 Completed</span>',
+                    cancelled: '<span class="bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">🔴 Cancelled</span>'
+                }[order.status] || `<span class="bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-300 text-[10px] px-2 py-0.5 rounded">${order.status}</span>`;
 
                 const typeBadge = {
-                    delivery: '<span class="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-lg font-bold">🛵 WhatsApp</span>',
-                    counter: '<span class="bg-blue-500/15 text-blue-300 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded-lg font-bold">🛍️ Counter</span>',
-                    dine_in: '<span class="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-lg font-bold">🍽️ Dine-in</span>'
+                    delivery: '<span class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] px-2 py-0.5 rounded-lg font-bold">🛵 WhatsApp</span>',
+                    counter: '<span class="bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-[10px] px-2 py-0.5 rounded-lg font-bold">🛍️ Counter</span>',
+                    dine_in: '<span class="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] px-2 py-0.5 rounded-lg font-bold">🍽️ Dine-in</span>'
                 }[order.order_type] || '';
 
                 const noteHtml = order.special_notes ? `
-                    <div class="bg-amber-500/15 border border-amber-500/40 rounded-xl p-2.5 text-xs text-amber-200">
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-xs text-amber-900 dark:text-amber-200">
                         <strong>📝 Special Note:</strong> ${order.special_notes}
                     </div>
                 ` : '';
 
-                card.className = `bg-darkslate-900 border border-slate-800 ${statusBorder} rounded-2xl p-4 shadow-md space-y-3 flex flex-col justify-between`;
+                card.className = `bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 ${statusBorder} rounded-2xl p-4 shadow-sm hover:shadow-md transition space-y-3 flex flex-col justify-between`;
 
                 card.innerHTML = `
                     <div class="space-y-2.5">
                         <div class="flex items-center justify-between">
-                            <span class="font-extrabold text-sm text-sky-400 font-mono-num">${order.order_id}</span>
+                            <span class="font-extrabold text-sm text-sky-600 dark:text-sky-400 font-mono-num">${order.order_id}</span>
                             <div class="flex items-center space-x-1.5">
                                 ${typeBadge}
                                 ${statusBadge}
                             </div>
                         </div>
 
-                        <div class="text-xs text-slate-300 space-y-1">
-                            <div><strong>👤 Customer:</strong> ${order.customer_name} &nbsp;|&nbsp; <strong>📞</strong> <a href="https://wa.me/${(order.customer_phone || '').replace(/[^0-9]/g, '')}" target="_blank" class="text-emerald-400 hover:underline font-mono-num font-bold">${order.customer_phone}</a></div>
+                        <div class="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                            <div><strong>👤 Customer:</strong> <span class="text-slate-900 dark:text-white font-semibold">${order.customer_name}</span> &nbsp;|&nbsp; <strong>📞</strong> <a href="https://wa.me/${(order.customer_phone || '').replace(/[^0-9]/g, '')}" target="_blank" class="text-emerald-600 dark:text-emerald-400 hover:underline font-mono-num font-bold">${order.customer_phone}</a></div>
                             <div><strong>📍 Location / Table:</strong> ${order.address}</div>
-                            <div class="text-[11px] text-slate-400">🕒 ${order.formatted_time || order.timestamp}</div>
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400">🕒 ${order.formatted_time || order.timestamp}</div>
                         </div>
 
                         <!-- Items list -->
-                        <div class="bg-darkslate-950 p-3 rounded-xl border border-slate-800 text-xs text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
+                        <div class="bg-slate-50 dark:bg-darkslate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
 ${order.items_list || order.slip || 'Order items'}
                         </div>
 
                         ${noteHtml}
                     </div>
 
-                    <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+                    <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
                         <div>
-                            <span class="text-xs text-slate-400">Total:</span>
-                            <span class="text-lg font-black text-emerald-400 font-mono-num ml-1">Rs. ${order.total}</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Total:</span>
+                            <span class="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono-num ml-1">Rs. ${order.total}</span>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <button onclick="openReceiptModalByOrderId('${order.order_id}')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition" title="Print 80mm Receipt">
+                            <button onclick="openReceiptModalByOrderId('${order.order_id}')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition" title="Print 80mm Receipt">
                                 🖨️
                             </button>
-                            <select onchange="updateOrderStatus('${order.order_id}', this.value)" class="bg-darkslate-950 border border-slate-700 text-slate-200 rounded-xl text-xs px-2.5 py-1.5 font-semibold focus:outline-none focus:border-rose-500">
+                            <select onchange="updateOrderStatus('${order.order_id}', this.value)" class="bg-slate-50 dark:bg-darkslate-950 border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-xl text-xs px-2.5 py-1.5 font-semibold focus:outline-none focus:border-rose-500">
                                 <option value="" disabled selected>Status...</option>
                                 <option value="pending">🟡 Pending</option>
                                 <option value="preparing">🔵 Preparing</option>
