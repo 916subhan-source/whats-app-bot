@@ -705,14 +705,18 @@ def render_pos_html() -> str:
         let salesChartInstance = null;
         let statusChartInstance = null;
 
-        document.addEventListener('DOMContentLoaded', () => {
+        function initApp() {
             startClock();
             fetchMenuData();
             fetchSalesStatsAndOrders();
-
-            // Auto-refresh every 15s
             setInterval(fetchSalesStatsAndOrders, 15000);
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
 
         function startClock() {
             function update() {
@@ -813,10 +817,11 @@ def render_pos_html() -> str:
                 // Split title if parenthetical components exist (e.g. Deal 1 (1 Small Pizza + 1 Zinger...))
                 let title = item.name;
                 let subtext = "";
-                const parenMatch = item.name.match(/^([^(]+)\\(([^)]+)\\)(.*)$/);
-                if (parenMatch) {
-                    title = parenMatch[1].trim();
-                    subtext = parenMatch[2].trim();
+                if (item.name.indexOf('(') !== -1 && item.name.indexOf(')') !== -1) {
+                    const firstParen = item.name.indexOf('(');
+                    const lastParen = item.name.lastIndexOf(')');
+                    title = item.name.substring(0, firstParen).trim();
+                    subtext = item.name.substring(firstParen + 1, lastParen).trim();
                 }
 
                 const icon = getItemIcon(item.category);
@@ -1153,10 +1158,11 @@ def render_pos_html() -> str:
                 }[order.status] || 'text-slate-300';
 
                 // Truncate item text for clean table presentation
-                const itemsSummary = (order.items_list || '')
+                const rawItems = order.items_list || order.slip || '';
+                const itemsSummary = rawItems
+                    .split(String.fromCharCode(10)).join(', ')
                     .replace(/•/g, '')
-                    .replace(/\n/g, ', ')
-                    .replace(/— Rs\\. \\d+/g, '')
+                    .replace(/— Rs[^,]*/g, '')
                     .trim();
 
                 tr.innerHTML = `
