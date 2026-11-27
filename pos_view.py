@@ -1,6 +1,6 @@
 # ============================================
 # 🍕 Cherry Peri Fast Food - POS & Sales Management HTML View
-# Complete Light Mode & Dark Mode with Persistence
+# Modern, Elegant, Simple & Attractive UI (Light & Dark Mode)
 # ============================================
 
 def render_pos_html() -> str:
@@ -9,7 +9,7 @@ def render_pos_html() -> str:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cherry Peri — POS & Sales Management System</title>
+    <title>Cherry Peri — POS & Sales Management</title>
     <!-- Prevent Theme Flash -->
     <script>
         const savedTheme = localStorage.getItem('cherry_theme');
@@ -30,6 +30,8 @@ def render_pos_html() -> str:
                         cherry: {
                             50: '#fff1f2',
                             100: '#ffe4e6',
+                            200: '#fecdd3',
+                            300: '#fda4af',
                             400: '#fb7185',
                             500: '#f43f5e',
                             600: '#e11d48',
@@ -44,6 +46,10 @@ def render_pos_html() -> str:
                             900: '#0f172a',
                             950: '#080d1a',
                         }
+                    },
+                    boxShadow: {
+                        'glow-cherry': '0 4px 20px -2px rgba(225, 29, 72, 0.35)',
+                        'glow-emerald': '0 4px 20px -2px rgba(16, 185, 129, 0.3)',
                     }
                 }
             }
@@ -59,7 +65,7 @@ def render_pos_html() -> str:
     <style>
         body {
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            transition: background-color 0.2s ease, color 0.2s ease;
+            transition: background-color 0.25s ease, color 0.25s ease;
         }
         html.dark body {
             background-color: #080d1a;
@@ -71,18 +77,20 @@ def render_pos_html() -> str:
         }
         .font-mono-num {
             font-family: 'JetBrains Mono', monospace;
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
         }
-        /* Custom Scrollbars */
+        /* Custom Smooth Scrollbars */
         ::-webkit-scrollbar {
-            width: 7px;
-            height: 7px;
+            width: 6px;
+            height: 6px;
         }
         html.dark ::-webkit-scrollbar-track {
             background: #0f172a;
         }
         html.dark ::-webkit-scrollbar-thumb {
             background: #334155;
-            border-radius: 6px;
+            border-radius: 9999px;
         }
         html.dark ::-webkit-scrollbar-thumb:hover {
             background: #475569;
@@ -92,7 +100,7 @@ def render_pos_html() -> str:
         }
         html:not(.dark) ::-webkit-scrollbar-thumb {
             background: #cbd5e1;
-            border-radius: 6px;
+            border-radius: 9999px;
         }
         html:not(.dark) ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
@@ -123,29 +131,42 @@ def render_pos_html() -> str:
                 display: none !important;
             }
         }
+
+        /* Interactive Tab Controls */
         .tab-btn.active {
             background: linear-gradient(135deg, #e11d48, #be123c);
             color: #ffffff !important;
-            box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+            box-shadow: 0 4px 15px rgba(225, 29, 72, 0.4);
+        }
+        .cat-pill.active {
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            color: #ffffff !important;
+            box-shadow: 0 2px 10px rgba(225, 29, 72, 0.35);
+        }
+        .order-type-btn.active {
+            background: linear-gradient(135deg, #e11d48, #be123c);
+            color: #ffffff !important;
+            box-shadow: 0 2px 8px rgba(225, 29, 72, 0.35);
+            border-color: transparent !important;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased">
+<body class="min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
 
     <!-- ───────────────────────────────────────────── -->
     <!-- 🔝 Top Navbar & Header -->
     <!-- ───────────────────────────────────────────── -->
-    <header class="bg-white/90 dark:bg-darkslate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-sm transition-colors">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+    <header class="bg-white/80 dark:bg-darkslate-900/80 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800 sticky top-0 z-40 px-4 sm:px-6 py-3 shadow-sm transition-colors">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3.5">
             <!-- Brand -->
             <div class="flex items-center space-x-3.5">
-                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cherry-700 via-rose-600 to-amber-500 flex items-center justify-center text-2xl shadow-lg shadow-cherry-700/30 border border-rose-400/20">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-amber-400 flex items-center justify-center text-2xl shadow-glow-cherry border border-rose-400/25 shrink-0 transform hover:scale-105 transition-transform duration-200">
                     🍕
                 </div>
                 <div>
                     <div class="flex items-center space-x-2">
-                        <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-white">CHERRY PERI</h1>
-                        <span class="bg-rose-500/15 text-rose-600 dark:text-rose-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-rose-500/25">
+                        <h1 class="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">CHERRY PERI</h1>
+                        <span class="bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] px-2.5 py-0.5 rounded-full font-extrabold border border-rose-500/20 tracking-wide">
                             POS & SALES
                         </span>
                     </div>
@@ -153,71 +174,70 @@ def render_pos_html() -> str:
                 </div>
             </div>
 
-            <!-- Tab Buttons -->
-            <nav class="flex items-center bg-slate-100 dark:bg-darkslate-850 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-x-1.5 shadow-inner">
-                <button onclick="switchTab('pos')" id="btn-tab-pos" class="tab-btn active px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition flex items-center space-x-2">
-                    <span class="text-base">🛒</span>
+            <!-- Tab Navigation (Segmented Dock) -->
+            <nav class="flex items-center bg-slate-100/90 dark:bg-darkslate-850 p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-x-1 shadow-inner">
+                <button onclick="switchTab('pos')" id="btn-tab-pos" class="tab-btn active px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-all flex items-center space-x-2">
+                    <span>🛒</span>
                     <span>POS Terminal</span>
                 </button>
-                <button onclick="switchTab('sales')" id="btn-tab-sales" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition flex items-center space-x-2">
-                    <span class="text-base">📊</span>
+                <button onclick="switchTab('sales')" id="btn-tab-sales" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-all flex items-center space-x-2">
+                    <span>📊</span>
                     <span>Sales & Analytics</span>
                 </button>
-                <button onclick="switchTab('orders')" id="btn-tab-orders" class="tab-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition flex items-center space-x-2">
-                    <span class="text-base">🍳</span>
+                <button onclick="switchTab('orders')" id="btn-tab-orders" class="tab-btn px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-all flex items-center space-x-2">
+                    <span>🍳</span>
                     <span>Kitchen Pipeline</span>
-                    <span id="badge-active-count" class="bg-emerald-500 text-white dark:text-slate-950 font-black text-xs px-2 py-0.5 rounded-full hidden">0</span>
+                    <span id="badge-active-count" class="bg-emerald-500 text-white font-black text-[11px] px-2 py-0.5 rounded-full shadow-sm hidden">0</span>
                 </button>
             </nav>
 
-            <!-- Actions, Theme Toggle & Clock -->
+            <!-- Quick Actions & Theme Switcher -->
             <div class="flex items-center space-x-2.5">
                 <!-- Theme Toggle Button -->
-                <button onclick="toggleTheme()" class="bg-slate-100 hover:bg-slate-200 dark:bg-darkslate-850 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center space-x-1.5 transition shadow-sm" title="Toggle Light / Dark Mode">
-                    <span id="theme-toggle-icon" class="text-sm">☀️</span>
-                    <span id="theme-toggle-text" class="hidden sm:inline">Theme</span>
+                <button onclick="toggleTheme()" class="bg-slate-100 hover:bg-slate-200 dark:bg-darkslate-850 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center space-x-1.5 transition shadow-sm active:scale-95" title="Toggle Light / Dark Mode">
+                    <span id="theme-toggle-icon" class="text-base">☀️</span>
+                    <span id="theme-toggle-text" class="hidden md:inline">Theme</span>
                 </button>
 
-                <div class="text-right hidden sm:block">
+                <!-- Live digital clock -->
+                <div class="text-right hidden lg:block bg-slate-50 dark:bg-darkslate-950 px-3 py-1.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
                     <div id="live-clock" class="text-xs font-mono-num font-extrabold text-slate-800 dark:text-slate-200">12:00:00 PM</div>
-                    <div id="live-date" class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">Today</div>
+                    <div id="live-date" class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Today</div>
                 </div>
 
-                <div class="h-7 w-px bg-slate-200 dark:bg-slate-800 hidden sm:block"></div>
-
-                <!-- Live status indicator -->
-                <div class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-xl text-xs font-bold">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-sm"></span>
-                    <span class="hidden md:inline">Live Auto-Sync (15s)</span>
+                <!-- Live Auto-Sync Status -->
+                <div class="flex items-center space-x-2 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl text-xs font-bold">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-glow-emerald"></span>
+                    <span class="hidden sm:inline">Live Sync</span>
                 </div>
 
-                <!-- Export to CSV -->
-                <a href="/api/sales/export" download class="bg-slate-100 hover:bg-slate-200 dark:bg-darkslate-850 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition shadow-sm">
+                <!-- Export CSV -->
+                <a href="/api/sales/export" download class="bg-slate-100 hover:bg-slate-200 dark:bg-darkslate-850 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition shadow-sm active:scale-95">
                     <span>📥</span>
-                    <span class="hidden sm:inline">Export CSV</span>
+                    <span class="hidden sm:inline">Export</span>
                 </a>
             </div>
         </div>
     </header>
 
     <!-- ───────────────────────────────────────────── -->
-    <!-- 💰 High-Contrast KPI Cards Bar (Always Visible) -->
+    <!-- 💰 High-Contrast KPI Cards Bar -->
     <!-- ───────────────────────────────────────────── -->
-    <div class="bg-slate-100/70 dark:bg-darkslate-900/80 border-b border-slate-200 dark:border-slate-800/90 px-4 py-3.5 transition-colors">
-        <div class="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3.5">
+    <div class="bg-slate-100/60 dark:bg-darkslate-900/60 border-b border-slate-200/80 dark:border-slate-800/80 px-4 sm:px-6 py-3.5 transition-colors">
+        <div class="max-w-7xl mx-auto grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
 
             <!-- Today's Revenue -->
-            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-emerald-500/25 dark:border-emerald-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+            <div class="bg-white dark:bg-darkslate-850 border border-emerald-500/20 dark:border-emerald-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span>💰</span>
-                        <span class="uppercase tracking-wider">Today's Sales</span>
+                        <span class="text-sm">💰</span>
+                        <span class="uppercase tracking-wider text-[11px]">Today's Sales</span>
                     </span>
-                    <span id="kpi-today-orders" class="bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
+                    <span id="kpi-today-orders" class="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
                         0 orders
                     </span>
                 </div>
-                <div class="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num tracking-tight" id="kpi-today-rev">
+                <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num tracking-tight" id="kpi-today-rev">
                     Rs. 0
                 </div>
                 <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
@@ -227,17 +247,17 @@ def render_pos_html() -> str:
             </div>
 
             <!-- This Month's Revenue -->
-            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-amber-500/25 dark:border-amber-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+            <div class="bg-white dark:bg-darkslate-850 border border-amber-500/20 dark:border-amber-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span>📅</span>
-                        <span class="uppercase tracking-wider">This Month</span>
+                        <span class="text-sm">📅</span>
+                        <span class="uppercase tracking-wider text-[11px]">This Month</span>
                     </span>
-                    <span id="kpi-month-orders" class="bg-amber-500/10 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
+                    <span id="kpi-month-orders" class="bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
                         0 orders
                     </span>
                 </div>
-                <div class="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num tracking-tight" id="kpi-month-rev">
+                <div class="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num tracking-tight" id="kpi-month-rev">
                     Rs. 0
                 </div>
                 <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -246,17 +266,17 @@ def render_pos_html() -> str:
             </div>
 
             <!-- Total All-Time Revenue -->
-            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-sky-500/25 dark:border-sky-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+            <div class="bg-white dark:bg-darkslate-850 border border-sky-500/20 dark:border-sky-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span>🏆</span>
-                        <span class="uppercase tracking-wider">Total Sales</span>
+                        <span class="text-sm">🏆</span>
+                        <span class="uppercase tracking-wider text-[11px]">Total Sales</span>
                     </span>
-                    <span id="kpi-total-orders" class="bg-sky-500/10 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
+                    <span id="kpi-total-orders" class="bg-sky-500/10 text-sky-700 dark:text-sky-300 font-bold px-2 py-0.5 rounded-md font-mono-num text-[11px]">
                         0 total
                     </span>
                 </div>
-                <div class="text-2xl font-black text-sky-600 dark:text-sky-400 font-mono-num tracking-tight" id="kpi-total-rev">
+                <div class="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono-num tracking-tight" id="kpi-total-rev">
                     Rs. 0
                 </div>
                 <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -265,17 +285,17 @@ def render_pos_html() -> str:
             </div>
 
             <!-- Average Order Value (AOV) -->
-            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-rose-500/25 dark:border-rose-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm transition">
+            <div class="bg-white dark:bg-darkslate-850 border border-rose-500/20 dark:border-rose-500/25 rounded-2xl p-3.5 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span>📈</span>
-                        <span class="uppercase tracking-wider">Avg Order (AOV)</span>
+                        <span class="text-sm">📈</span>
+                        <span class="uppercase tracking-wider text-[11px]">Avg Order (AOV)</span>
                     </span>
-                    <span class="bg-rose-500/10 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
+                    <span class="bg-rose-500/10 text-rose-700 dark:text-rose-300 font-bold px-2 py-0.5 rounded-md text-[11px]">
                         Per Ticket
                     </span>
                 </div>
-                <div class="text-2xl font-black text-rose-600 dark:text-rose-400 font-mono-num tracking-tight" id="kpi-avg-order">
+                <div class="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400 font-mono-num tracking-tight" id="kpi-avg-order">
                     Rs. 0
                 </div>
                 <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -283,14 +303,14 @@ def render_pos_html() -> str:
                 </div>
             </div>
 
-            <!-- Sales Channel Quick Split -->
-            <div class="bg-white dark:bg-gradient-to-b dark:from-darkslate-850 dark:to-darkslate-900 border border-purple-500/25 dark:border-purple-500/25 rounded-2xl p-3.5 col-span-2 sm:col-span-1 flex flex-col justify-between shadow-sm transition">
+            <!-- Sales Channel Split -->
+            <div class="bg-white dark:bg-darkslate-850 border border-purple-500/20 dark:border-purple-500/25 rounded-2xl p-3.5 col-span-2 sm:col-span-1 flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200">
                 <div class="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-1 font-semibold">
                     <span class="flex items-center space-x-1.5">
-                        <span>🛵</span>
-                        <span class="uppercase tracking-wider">Channels</span>
+                        <span class="text-sm">🛵</span>
+                        <span class="uppercase tracking-wider text-[11px]">Channels</span>
                     </span>
-                    <span class="text-slate-500 dark:text-slate-400 text-[11px]">Breakdown</span>
+                    <span class="text-slate-500 dark:text-slate-400 text-[11px]">Split</span>
                 </div>
                 <div class="space-y-1 mt-1 text-xs font-mono-num">
                     <div class="flex justify-between items-center text-slate-700 dark:text-slate-300">
@@ -310,56 +330,57 @@ def render_pos_html() -> str:
     <!-- ───────────────────────────────────────────── -->
     <!-- 🖥️ MAIN VIEW CONTAINER -->
     <!-- ───────────────────────────────────────────── -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-5">
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
 
         <!-- ───────────────────────────────────────────── -->
         <!-- 🛒 TAB 1: POS TERMINAL -->
         <!-- ───────────────────────────────────────────── -->
-        <div id="tab-content-pos" class="space-y-4">
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div id="tab-content-pos" class="space-y-5">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
 
                 <!-- Left Column: Menu Items & Catalog (8 cols) -->
                 <div class="lg:col-span-7 xl:col-span-8 space-y-4">
 
                     <!-- Search and Category Filters -->
-                    <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm space-y-3.5 transition-colors">
-                        <div class="flex flex-wrap items-center gap-2.5">
-                            <div class="relative flex-1 min-w-[220px]">
-                                <input type="text" id="pos-search-input" oninput="filterMenuItems()" placeholder="🔍 Search menu (e.g. Deal 20, Zinger, Tikka, Shawarma)..."
-                                       class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 transition shadow-inner">
+                    <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3.5 transition-colors">
+                        <div class="flex items-center gap-2.5">
+                            <div class="relative flex-1">
+                                <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">🔍</span>
+                                <input type="text" id="pos-search-input" oninput="filterMenuItems()" placeholder="Search menu (e.g. Deal 20, Zinger, Tikka, Shawarma)..."
+                                       class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 transition shadow-inner">
                             </div>
-                            <button onclick="clearSearch()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition">
+                            <button onclick="clearSearch()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-2xl transition active:scale-95">
                                 Reset
                             </button>
                         </div>
 
                         <!-- Category Filter Buttons -->
-                        <div class="flex items-center gap-2 overflow-x-auto pb-1" id="category-pills">
-                            <button onclick="filterCategory('all')" class="cat-pill active px-3.5 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-sm">
+                        <div class="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin" id="category-pills">
+                            <button onclick="filterCategory('all')" class="cat-pill active px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🌟 All Items
                             </button>
-                            <button onclick="filterCategory('deals')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('deals')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🌟 Deals (1-26)
                             </button>
-                            <button onclick="filterCategory('pizza_regular')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('pizza_regular')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🍕 Regular Pizzas
                             </button>
-                            <button onclick="filterCategory('pizza_special')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('pizza_special')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🍕 Special Pizzas
                             </button>
-                            <button onclick="filterCategory('burgers')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('burgers')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🍔 Burgers
                             </button>
-                            <button onclick="filterCategory('shawarma')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('shawarma')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🌯 Shawarma
                             </button>
-                            <button onclick="filterCategory('paratha_rolls')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('paratha_rolls')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🌯 Paratha Rolls
                             </button>
-                            <button onclick="filterCategory('fries')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('fries')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🍟 Fries & Sides
                             </button>
-                            <button onclick="filterCategory('drinks')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                            <button onclick="filterCategory('drinks')" class="cat-pill px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-full text-xs font-bold whitespace-nowrap transition-all">
                                 🥤 Drinks
                             </button>
                         </div>
@@ -373,69 +394,81 @@ def render_pos_html() -> str:
 
                 <!-- Right Column: Current POS Order Cart (4 cols) -->
                 <div class="lg:col-span-5 xl:col-span-4 space-y-4">
-                    <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-lg sticky top-20 flex flex-col h-[750px] transition-colors">
+                    <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-lg sticky top-20 flex flex-col h-[760px] transition-colors">
                         <!-- Cart Header -->
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                            <div class="flex items-center space-x-2">
+                        <div class="flex items-center justify-between pb-3.5 border-b border-slate-200/80 dark:border-slate-800">
+                            <div class="flex items-center space-x-2.5">
                                 <span class="text-xl">🧾</span>
                                 <div>
-                                    <h3 class="font-bold text-slate-900 dark:text-white text-sm">Order Terminal</h3>
+                                    <h3 class="font-extrabold text-slate-900 dark:text-white text-sm">Order Terminal</h3>
                                     <p class="text-[11px] text-slate-500 dark:text-slate-400">Cashier Billing Slip</p>
                                 </div>
                             </div>
-                            <button onclick="clearCart()" class="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-bold px-2.5 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
-                                Clear Cart
+                            <button onclick="clearCart()" class="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 font-bold px-2.5 py-1 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition">
+                                Clear
                             </button>
                         </div>
 
                         <!-- Customer & Order Meta Inputs -->
-                        <div class="py-3 space-y-2.5 border-b border-slate-200 dark:border-slate-800/90 text-xs">
+                        <div class="py-3.5 space-y-2.5 border-b border-slate-200/80 dark:border-slate-800 text-xs">
+                            <!-- Order Type Interactive Segmented Pills -->
+                            <div>
+                                <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-1">Order Type</label>
+                                <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 dark:bg-darkslate-950 rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                                    <button type="button" onclick="selectOrderType('counter')" id="type-pill-counter" class="order-type-btn active py-1.5 rounded-xl text-[11px] font-bold text-center transition-all">
+                                        🛍️ Counter
+                                    </button>
+                                    <button type="button" onclick="selectOrderType('dine_in')" id="type-pill-dine_in" class="order-type-btn py-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl text-[11px] font-bold text-center transition-all">
+                                        🍽️ Dine-in
+                                    </button>
+                                    <button type="button" onclick="selectOrderType('delivery')" id="type-pill-delivery" class="order-type-btn py-1.5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-xl text-[11px] font-bold text-center transition-all">
+                                        🛵 Delivery
+                                    </button>
+                                </div>
+                                <!-- Hidden select to maintain full compatibility -->
+                                <select id="cart-order-type" onchange="handleOrderTypeChange()" class="hidden">
+                                    <option value="counter" selected>Counter</option>
+                                    <option value="dine_in">Dine-in</option>
+                                    <option value="delivery">Delivery</option>
+                                </select>
+                            </div>
+
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Customer Name</label>
                                     <input type="text" id="cart-customer-name" placeholder="Walk-in Customer"
-                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500">
+                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20">
                                 </div>
                                 <div>
                                     <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Phone Number</label>
                                     <input type="text" id="cart-customer-phone" placeholder="0300-1234567"
-                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500">
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Order Type</label>
-                                    <select id="cart-order-type" onchange="handleOrderTypeChange()"
-                                            class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-rose-500">
-                                        <option value="counter">🛍️ Counter / Takeaway</option>
-                                        <option value="dine_in">🍽️ Dine-in (Table)</option>
-                                        <option value="delivery">🛵 WhatsApp Delivery</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5">Location / Table</label>
-                                    <input type="text" id="cart-address" placeholder="Table # / Address"
-                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500">
+                                           class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20">
                                 </div>
                             </div>
 
                             <div>
-                                <label class="text-[11px] text-amber-700 dark:text-amber-300 font-semibold block mb-0.5">📝 Special Customer Note</label>
+                                <label class="text-[11px] text-slate-600 dark:text-slate-400 font-semibold block mb-0.5" id="label-cart-address">Location / Table / Address</label>
+                                <input type="text" id="cart-address" placeholder="Counter Takeaway"
+                                       class="w-full bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500/20">
+                            </div>
+
+                            <div>
+                                <label class="text-[11px] text-amber-700 dark:text-amber-400 font-semibold block mb-0.5">📝 Special Customer Note</label>
                                 <input type="text" id="cart-special-notes" placeholder="e.g. Cheese kam, Extra spicy, Kam sauce"
-                                       class="w-full bg-slate-50 dark:bg-darkslate-950 border border-amber-500/30 dark:border-amber-500/40 rounded-xl px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 placeholder-amber-400/60 focus:outline-none focus:border-amber-500">
+                                       class="w-full bg-amber-50/50 dark:bg-darkslate-950 border border-amber-500/30 dark:border-amber-500/40 rounded-xl px-3 py-1.5 text-xs text-amber-900 dark:text-amber-200 placeholder-amber-400/60 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20">
                             </div>
                         </div>
 
                         <!-- Cart Items Scroll Area -->
                         <div id="cart-items-container" class="flex-1 overflow-y-auto py-2.5 space-y-2 pr-1">
                             <div class="text-center py-16 text-slate-400 dark:text-slate-500 text-xs font-medium">
-                                Cart is empty.<br>Click any item from the menu catalog to add!
+                                <span class="text-3xl block mb-2">🛒</span>
+                                Cart is empty.<br>Click any item from the catalog to add!
                             </div>
                         </div>
 
                         <!-- Cart Totals & Place Order -->
-                        <div class="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                        <div class="pt-3 border-t border-slate-200/80 dark:border-slate-800 space-y-2">
                             <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
                                 <span>Food Subtotal</span>
                                 <span class="font-mono-num font-bold text-slate-800 dark:text-slate-200" id="cart-subtotal">Rs. 0</span>
@@ -450,18 +483,18 @@ def render_pos_html() -> str:
                                 <input type="number" id="cart-discount" value="0" min="0" oninput="calculateCartTotal()"
                                        class="w-20 bg-slate-50 dark:bg-darkslate-950 border border-slate-300 dark:border-slate-700 text-right px-2 py-0.5 rounded-lg text-xs text-slate-900 dark:text-slate-200 font-mono-num font-bold">
                             </div>
-                            <div class="flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white pt-2.5 border-t border-slate-200 dark:border-slate-800/80">
+                            <div class="flex justify-between items-center text-sm font-bold text-slate-900 dark:text-white pt-2 border-t border-slate-200/80 dark:border-slate-800">
                                 <span class="text-slate-600 dark:text-slate-300">Net Total Bill:</span>
                                 <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="cart-net-total">Rs. 0</span>
                             </div>
 
                             <!-- Actions -->
                             <div class="grid grid-cols-2 gap-2.5 pt-2">
-                                <button onclick="submitPosOrder(false)" class="bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-extrabold py-2.5 px-3 rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-sm">
+                                <button onclick="submitPosOrder(false)" class="bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold py-2.5 px-3 rounded-2xl text-xs transition-all flex items-center justify-center space-x-1.5 shadow-sm active:scale-95">
                                     <span>💾</span>
                                     <span>Record Order</span>
                                 </button>
-                                <button onclick="submitPosOrder(true)" class="bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black py-2.5 px-3 rounded-xl text-xs transition shadow-lg shadow-rose-900/30 flex items-center justify-center space-x-1.5">
+                                <button onclick="submitPosOrder(true)" class="bg-gradient-to-r from-rose-600 via-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-black py-2.5 px-3 rounded-2xl text-xs transition-all shadow-glow-cherry flex items-center justify-center space-x-1.5 active:scale-95">
                                     <span>🖨️</span>
                                     <span>Place & Print</span>
                                 </button>
@@ -482,49 +515,49 @@ def render_pos_html() -> str:
             <!-- Financial Health Summary Grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Net Revenue -->
-                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/20">
+                <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-2xl border border-emerald-500/20 shrink-0">
                         💰
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Gross Income</div>
-                        <div class="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="analytics-total-rev">Rs. 0</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Gross Income</div>
+                        <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono-num" id="analytics-total-rev">Rs. 0</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400">All Completed Orders</div>
                     </div>
                 </div>
 
                 <!-- WhatsApp Orders Revenue -->
-                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-2xl border border-emerald-500/20">
+                <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
+                    <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 flex items-center justify-center text-2xl border border-emerald-500/20 shrink-0">
                         🛵
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">WhatsApp Delivery</div>
-                        <div class="text-xl font-black text-emerald-600 dark:text-emerald-300 font-mono-num" id="analytics-wa-rev">Rs. 0</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">WhatsApp Delivery</div>
+                        <div class="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-300 font-mono-num" id="analytics-wa-rev">Rs. 0</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-wa-orders">0 orders</div>
                     </div>
                 </div>
 
                 <!-- Counter & Dine-in Revenue -->
-                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
-                    <div class="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center text-2xl border border-sky-500/20">
+                <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
+                    <div class="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center justify-center text-2xl border border-sky-500/20 shrink-0">
                         🛍️
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Counter & Dine-in</div>
-                        <div class="text-xl font-black text-sky-600 dark:text-sky-400 font-mono-num" id="analytics-counter-rev">Rs. 0</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Counter & Dine-in</div>
+                        <div class="text-xl sm:text-2xl font-black text-sky-600 dark:text-sky-400 font-mono-num" id="analytics-counter-rev">Rs. 0</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-counter-orders">0 orders</div>
                     </div>
                 </div>
 
                 <!-- Success Rate -->
-                <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex items-center space-x-3.5 transition-colors">
-                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl border border-amber-500/20">
+                <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-sm flex items-center space-x-4 transition-all hover:shadow-md">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center text-2xl border border-amber-500/20 shrink-0">
                         🎯
                     </div>
                     <div>
-                        <div class="text-xs uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Order Completion</div>
-                        <div class="text-xl font-black text-amber-600 dark:text-amber-400 font-mono-num" id="analytics-completion-rate">100%</div>
+                        <div class="text-[11px] uppercase font-bold text-slate-500 dark:text-slate-400 tracking-wider">Order Completion</div>
+                        <div class="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono-num" id="analytics-completion-rate">100%</div>
                         <div class="text-[11px] text-slate-500 dark:text-slate-400" id="analytics-active-ratio">0 active now</div>
                     </div>
                 </div>
@@ -533,7 +566,7 @@ def render_pos_html() -> str:
             <!-- Charts Row -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <!-- Daily Sales Bar/Area Chart (30 Days) -->
-                <div class="lg:col-span-8 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 transition-colors">
+                <div class="lg:col-span-8 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 transition-colors">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div>
                             <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
@@ -552,7 +585,7 @@ def render_pos_html() -> str:
                 </div>
 
                 <!-- Channel & Order Distribution Doughnut Chart -->
-                <div class="lg:col-span-4 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
+                <div class="lg:col-span-4 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
                     <div>
                         <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
                             <span>🥧</span>
@@ -563,7 +596,7 @@ def render_pos_html() -> str:
                     <div class="h-56 flex items-center justify-center relative">
                         <canvas id="statusChart"></canvas>
                     </div>
-                    <div id="status-legend" class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200 dark:border-slate-800/80">
+                    <div id="status-legend" class="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-slate-200/80 dark:border-slate-800">
                         <!-- Populated by JS -->
                     </div>
                 </div>
@@ -572,7 +605,7 @@ def render_pos_html() -> str:
             <!-- Leaderboard & Pipeline Breakdown -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
                 <!-- Top 10 Selling Items Leaderboard -->
-                <div class="lg:col-span-6 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 transition-colors">
+                <div class="lg:col-span-6 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 transition-colors">
                     <div class="flex items-center justify-between">
                         <div>
                             <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
@@ -585,12 +618,12 @@ def render_pos_html() -> str:
                     </div>
 
                     <div class="space-y-3" id="top-items-container">
-                        <!-- Populated with progress bars by JS -->
+                        <!-- Populated by JS -->
                     </div>
                 </div>
 
                 <!-- Pipeline Status Progress & Accounting Info -->
-                <div class="lg:col-span-6 bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
+                <div class="lg:col-span-6 bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4 flex flex-col justify-between transition-colors">
                     <div class="space-y-4">
                         <div>
                             <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
@@ -601,20 +634,20 @@ def render_pos_html() -> str:
                         </div>
 
                         <div class="space-y-2.5 text-xs" id="status-bars-container">
-                            <!-- Populated with colored progress bars by JS -->
+                            <!-- Populated by JS -->
                         </div>
                     </div>
 
                     <!-- Direct Excel / CSV Export Banner -->
-                    <div class="bg-slate-50 dark:bg-darkslate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2 mt-4">
+                    <div class="bg-slate-50 dark:bg-darkslate-950 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2 mt-4">
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-bold text-slate-800 dark:text-slate-200">Financial Reporting & Accounting</span>
                             <span class="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded font-mono-num font-bold">CSV / Excel</span>
                         </div>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            Export every single recorded order with timestamps, customer names, phone numbers, items, special notes, and amounts.
+                            Export every recorded order with timestamps, customer names, phone numbers, items, special notes, and amounts.
                         </p>
-                        <a href="/api/sales/export" download class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-md">
+                        <a href="/api/sales/export" download class="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-black py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-md active:scale-95">
                             <span>📥</span>
                             <span>Download All Sales History (.CSV)</span>
                         </a>
@@ -623,7 +656,7 @@ def render_pos_html() -> str:
             </div>
 
             <!-- Recent Completed Sales Ledger Table -->
-            <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3 transition-colors">
+            <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm space-y-3.5 transition-colors">
                 <div class="flex items-center justify-between">
                     <div>
                         <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center space-x-2">
@@ -637,7 +670,7 @@ def render_pos_html() -> str:
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
                         <thead>
-                            <tr class="text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 font-bold uppercase tracking-wider text-[11px]">
+                            <tr class="text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-800 font-bold uppercase tracking-wider text-[11px]">
                                 <th class="py-2.5 px-2">Order ID</th>
                                 <th class="py-2.5 px-2">Time</th>
                                 <th class="py-2.5 px-2">Customer</th>
@@ -647,7 +680,7 @@ def render_pos_html() -> str:
                                 <th class="py-2.5 px-2 text-center">Status</th>
                             </tr>
                         </thead>
-                        <tbody id="sales-ledger-tbody" class="divide-y divide-slate-200 dark:divide-slate-800/60 font-medium">
+                        <tbody id="sales-ledger-tbody" class="divide-y divide-slate-200/80 dark:divide-slate-800/60 font-medium">
                             <!-- Populated by JS -->
                         </tbody>
                     </table>
@@ -662,24 +695,24 @@ def render_pos_html() -> str:
         <div id="tab-content-orders" class="hidden space-y-4">
 
             <!-- Filter Status Bar -->
-            <div class="bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-sm transition-colors">
+            <div class="bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-sm transition-colors">
                 <div class="flex items-center space-x-2 overflow-x-auto pb-1" id="order-status-filters">
-                    <button onclick="filterOrderStatus('all')" class="status-filter-btn active px-3.5 py-1.5 bg-rose-600 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-sm">
+                    <button onclick="filterOrderStatus('all')" class="status-filter-btn active px-3.5 py-1.5 bg-rose-600 text-white rounded-full text-xs font-bold whitespace-nowrap shadow-sm">
                         All Orders
                     </button>
-                    <button onclick="filterOrderStatus('pending')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('pending')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-amber-700 dark:text-amber-400 rounded-full text-xs font-bold whitespace-nowrap transition">
                         🟡 Pending
                     </button>
-                    <button onclick="filterOrderStatus('preparing')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sky-700 dark:text-sky-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('preparing')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-sky-700 dark:text-sky-400 rounded-full text-xs font-bold whitespace-nowrap transition">
                         🔵 Preparing
                     </button>
-                    <button onclick="filterOrderStatus('out_for_delivery')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-purple-700 dark:text-purple-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('out_for_delivery')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-purple-700 dark:text-purple-400 rounded-full text-xs font-bold whitespace-nowrap transition">
                         🟣 Out for Delivery
                     </button>
-                    <button onclick="filterOrderStatus('completed')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('completed')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-emerald-700 dark:text-emerald-400 rounded-full text-xs font-bold whitespace-nowrap transition">
                         🟢 Completed
                     </button>
-                    <button onclick="filterOrderStatus('cancelled')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-rose-700 dark:text-rose-400 rounded-xl text-xs font-bold whitespace-nowrap transition">
+                    <button onclick="filterOrderStatus('cancelled')" class="status-filter-btn px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-rose-700 dark:text-rose-400 rounded-full text-xs font-bold whitespace-nowrap transition">
                         🔴 Cancelled
                     </button>
                 </div>
@@ -702,7 +735,7 @@ def render_pos_html() -> str:
     <!-- 🖨️ 80mm THERMAL RECEIPT MODAL -->
     <!-- ───────────────────────────────────────────── -->
     <div id="receipt-modal-backdrop" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white text-slate-900 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-white text-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
             <!-- Modal Header -->
             <div class="flex items-center justify-between no-print border-b border-slate-200 pb-3">
                 <span class="font-extrabold text-sm text-slate-800">Print Preview (80mm Thermal)</span>
@@ -716,10 +749,10 @@ def render_pos_html() -> str:
 
             <!-- Modal Actions -->
             <div class="flex space-x-2 pt-2 border-t border-slate-200 no-print">
-                <button onclick="closeReceiptModal()" class="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+                <button onclick="closeReceiptModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
                     Close
                 </button>
-                <button onclick="window.print()" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-1.5">
+                <button onclick="window.print()" class="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-xl shadow-md transition flex items-center justify-center space-x-1.5 active:scale-95">
                     <span>🖨️</span>
                     <span>Print Receipt</span>
                 </button>
@@ -757,66 +790,119 @@ def render_pos_html() -> str:
         }
 
         // ─────────────────────────────────────────────
-        // ☀️ / 🌙 Theme Toggle Logic
+        // ☀️ / 🌙 Theme Toggle & Persistence
         // ─────────────────────────────────────────────
+        function initTheme() {
+            const saved = localStorage.getItem('cherry_theme');
+            const isDark = saved !== 'light';
+            updateThemeUI(isDark);
+        }
+
         function toggleTheme() {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('cherry_theme', isDark ? 'dark' : 'light');
-            updateThemeIcon(isDark);
+            const isDark = document.documentElement.classList.contains('dark');
+            const nextDark = !isDark;
+            if (nextDark) {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('cherry_theme', 'dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('cherry_theme', 'light');
+            }
+            updateThemeUI(nextDark);
             if (!document.getElementById('tab-content-sales').classList.contains('hidden')) {
                 renderSalesCharts();
             }
         }
 
-        function updateThemeIcon(isDark) {
-            const iconEl = document.getElementById('theme-toggle-icon');
-            const textEl = document.getElementById('theme-toggle-text');
-            if (iconEl) iconEl.innerText = isDark ? '☀️' : '🌙';
-            if (textEl) textEl.innerText = isDark ? 'Light' : 'Dark';
+        function updateThemeUI(isDark) {
+            const icon = document.getElementById('theme-toggle-icon');
+            const text = document.getElementById('theme-toggle-text');
+            if (icon) icon.innerText = isDark ? '🌙' : '☀️';
+            if (text) text.innerText = isDark ? 'Dark' : 'Light';
         }
 
-        function initTheme() {
-            const saved = localStorage.getItem('cherry_theme');
-            const isDark = saved ? saved === 'dark' : true;
-            if (isDark) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-            updateThemeIcon(isDark);
-        }
-
+        // ─────────────────────────────────────────────
+        // 🕒 Live Digital Clock
+        // ─────────────────────────────────────────────
         function startClock() {
             function update() {
                 const now = new Date();
                 const clockEl = document.getElementById('live-clock');
                 const dateEl = document.getElementById('live-date');
                 if (clockEl) {
-                    clockEl.innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 }
                 if (dateEl) {
-                    dateEl.innerText = now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                    dateEl.innerText = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
                 }
             }
             update();
             setInterval(update, 1000);
         }
 
+        // ─────────────────────────────────────────────
+        // 🗂️ Tab Switching Logic
+        // ─────────────────────────────────────────────
         function switchTab(tab) {
             ['pos', 'sales', 'orders'].forEach(t => {
-                document.getElementById(`tab-content-${t}`).classList.add('hidden');
-                document.getElementById(`btn-tab-${t}`).classList.remove('active');
+                const btn = document.getElementById(`btn-tab-${t}`);
+                const content = document.getElementById(`tab-content-${t}`);
+                if (t === tab) {
+                    btn?.classList.add('active');
+                    content?.classList.remove('hidden');
+                } else {
+                    btn?.classList.remove('active');
+                    content?.classList.add('hidden');
+                }
             });
-            document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
-            document.getElementById(`btn-tab-${tab}`).classList.add('active');
 
             if (tab === 'sales') {
-                renderSalesCharts();
+                setTimeout(renderSalesCharts, 100);
             }
         }
 
         // ─────────────────────────────────────────────
-        // 🍕 Menu Catalog & POS Terminal
+        // 🛍️ Order Type Selector
+        // ─────────────────────────────────────────────
+        function selectOrderType(type) {
+            ['counter', 'dine_in', 'delivery'].forEach(t => {
+                const btn = document.getElementById(`type-pill-${t}`);
+                if (t === type) {
+                    btn?.classList.add('active');
+                    btn?.classList.remove('text-slate-600', 'dark:text-slate-400');
+                } else {
+                    btn?.classList.remove('active');
+                    btn?.classList.add('text-slate-600', 'dark:text-slate-400');
+                }
+            });
+
+            const sel = document.getElementById('cart-order-type');
+            if (sel) sel.value = type;
+
+            const addrInput = document.getElementById('cart-address');
+            const addrLabel = document.getElementById('label-cart-address');
+            if (type === 'dine_in') {
+                addrLabel.innerText = 'Table Number';
+                addrInput.placeholder = 'e.g. Table 4';
+                if (!addrInput.value || addrInput.value === 'Counter Takeaway') addrInput.value = '';
+            } else if (type === 'delivery') {
+                addrLabel.innerText = 'Delivery Street / Mohalla';
+                addrInput.placeholder = 'e.g. Circular Road / Stylo Center';
+                if (!addrInput.value || addrInput.value === 'Counter Takeaway') addrInput.value = '';
+            } else {
+                addrLabel.innerText = 'Location / Table / Address';
+                addrInput.placeholder = 'Counter Takeaway';
+                if (!addrInput.value) addrInput.value = 'Counter Takeaway';
+            }
+        }
+
+        function handleOrderTypeChange() {
+            const sel = document.getElementById('cart-order-type');
+            if (sel) selectOrderType(sel.value);
+        }
+
+        // ─────────────────────────────────────────────
+        // 🍕 Menu Catalog & POS Logic
         // ─────────────────────────────────────────────
         async function fetchMenuData() {
             try {
@@ -831,12 +917,10 @@ def render_pos_html() -> str:
 
         function filterCategory(cat) {
             currentCategory = cat;
-            document.querySelectorAll('#category-pills button').forEach(b => {
-                b.classList.remove('active', 'bg-rose-600', 'text-white');
-                b.classList.add('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300');
+            document.querySelectorAll('#category-pills .cat-pill').forEach(b => {
+                b.classList.remove('active');
             });
-            event.target.classList.add('active', 'bg-rose-600', 'text-white');
-            event.target.classList.remove('bg-slate-100', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-300');
+            event.target.classList.add('active');
             renderMenuItems();
         }
 
@@ -853,7 +937,7 @@ def render_pos_html() -> str:
 
         function getItemIcon(category) {
             if (category === 'deals') return '🌟';
-            if (category.includes('pizza')) return '🍕';
+            if (category && category.includes('pizza')) return '🍕';
             if (category === 'burgers') return '🍔';
             if (category === 'shawarma' || category === 'paratha_rolls') return '🌯';
             if (category === 'fries') return '🍟';
@@ -863,6 +947,7 @@ def render_pos_html() -> str:
 
         function renderMenuItems() {
             const grid = document.getElementById('pos-items-grid');
+            if (!grid) return;
             grid.innerHTML = '';
 
             let filtered = allMenuItems;
@@ -874,13 +959,13 @@ def render_pos_html() -> str:
             }
 
             if (filtered.length === 0) {
-                grid.innerHTML = `<div class="col-span-full py-16 text-center text-slate-500 text-sm">No items found matching "${currentSearch}".</div>`;
+                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-400 dark:text-slate-500 text-sm font-medium">No items found matching "${currentSearch}".</div>`;
                 return;
             }
 
             filtered.forEach(item => {
                 const card = document.createElement('div');
-                card.className = "bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 rounded-2xl p-3.5 shadow-sm hover:shadow-md transition flex flex-col justify-between group";
+                card.className = "bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 hover:border-rose-500/40 dark:hover:border-rose-500/40 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between group hover:-translate-y-0.5";
 
                 let title = item.name;
                 let subtext = "";
@@ -895,19 +980,19 @@ def render_pos_html() -> str:
 
                 card.innerHTML = `
                     <div>
-                        <div class="flex items-start justify-between gap-1 mb-1.5">
-                            <div class="flex items-center space-x-1.5">
-                                <span class="text-base">${icon}</span>
-                                <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition leading-snug">${title}</h4>
+                        <div class="flex items-start justify-between gap-1.5 mb-1.5">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-lg p-1.5 bg-slate-50 dark:bg-darkslate-950 rounded-xl border border-slate-200/60 dark:border-slate-800">${icon}</span>
+                                <h4 class="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors leading-snug">${title}</h4>
                             </div>
                         </div>
                         ${subtext ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mb-2 leading-tight">${subtext}</p>` : ''}
-                        <span class="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md font-medium">${item.category_name || item.category}</span>
+                        <span class="text-[10px] text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2.5 py-0.5 rounded-full font-semibold">${item.category_name || item.category}</span>
                     </div>
-                    <div class="mt-3.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
                         <span class="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono-num">Rs. ${item.price}</span>
                         <button onclick="addToCart('${item.id}', '${escapeHtml(item.name)}', ${item.price})"
-                                class="bg-rose-600 hover:bg-rose-500 active:scale-95 text-white font-extrabold text-xs px-3 py-1.5 rounded-xl transition shadow-md shadow-rose-950/20 flex items-center space-x-1">
+                                class="bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 active:scale-95 text-white font-extrabold text-xs px-3.5 py-1.5 rounded-xl transition-all shadow-sm flex items-center space-x-1">
                             <span>+ Add</span>
                         </button>
                     </div>
@@ -954,34 +1039,29 @@ def render_pos_html() -> str:
             document.getElementById('cart-special-notes').value = '';
             document.getElementById('cart-delivery-fee').value = '0';
             document.getElementById('cart-discount').value = '0';
+            selectOrderType('counter');
             renderCart();
-        }
-
-        function handleOrderTypeChange() {
-            const type = document.getElementById('cart-order-type').value;
-            const addrInput = document.getElementById('cart-address');
-            if (type === 'dine_in') {
-                addrInput.placeholder = 'Table Number (e.g. Table 4)';
-            } else if (type === 'delivery') {
-                addrInput.placeholder = 'Delivery Street / Mohalla';
-            } else {
-                addrInput.placeholder = 'Counter / Takeaway';
-            }
         }
 
         function renderCart() {
             const container = document.getElementById('cart-items-container');
+            if (!container) return;
             container.innerHTML = '';
 
             if (cart.length === 0) {
-                container.innerHTML = `<div class="text-center py-16 text-slate-400 dark:text-slate-500 text-xs font-medium">Cart is empty.<br>Click any item from the menu catalog to add!</div>`;
+                container.innerHTML = `
+                    <div class="text-center py-16 text-slate-400 dark:text-slate-500 text-xs font-medium">
+                        <span class="text-3xl block mb-2">🛒</span>
+                        Cart is empty.<br>Click any item from the catalog to add!
+                    </div>
+                `;
                 calculateCartTotal();
                 return;
             }
 
             cart.forEach(item => {
                 const row = document.createElement('div');
-                row.className = "bg-slate-50 dark:bg-darkslate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 flex items-center justify-between text-xs";
+                row.className = "bg-slate-50 dark:bg-darkslate-950 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-2.5 flex items-center justify-between text-xs";
                 const totalItemPrice = item.price * item.qty;
 
                 row.innerHTML = `
@@ -990,9 +1070,9 @@ def render_pos_html() -> str:
                         <div class="text-[11px] text-slate-500 dark:text-slate-400 font-mono-num">Rs. ${item.price} × ${item.qty} = <span class="text-emerald-600 dark:text-emerald-400 font-bold">Rs. ${totalItemPrice}</span></div>
                     </div>
                     <div class="flex items-center space-x-1.5 shrink-0">
-                        <button onclick="updateCartQty('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center">-</button>
+                        <button onclick="updateCartQty('${item.id}', -1)" class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center transition">-</button>
                         <span class="font-mono-num font-bold text-xs w-4 text-center text-slate-900 dark:text-white">${item.qty}</span>
-                        <button onclick="updateCartQty('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center">+</button>
+                        <button onclick="updateCartQty('${item.id}', 1)" class="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold flex items-center justify-center transition">+</button>
                         <button onclick="removeCartItem('${item.id}')" class="text-rose-600 dark:text-rose-400 hover:text-rose-700 ml-1.5 font-bold text-sm">✕</button>
                     </div>
                 `;
@@ -1008,8 +1088,8 @@ def render_pos_html() -> str:
             const discount = parseInt(document.getElementById('cart-discount').value) || 0;
             const net = Math.max(0, subtotal + delivery - discount);
 
-            document.getElementById('cart-subtotal').innerText = `Rs. ${subtotal}`;
-            document.getElementById('cart-net-total').innerText = `Rs. ${net}`;
+            document.getElementById('cart-subtotal').innerText = `Rs. ${subtotal.toLocaleString()}`;
+            document.getElementById('cart-net-total').innerText = `Rs. ${net.toLocaleString()}`;
             return { subtotal, delivery, discount, net };
         }
 
@@ -1102,7 +1182,7 @@ def render_pos_html() -> str:
 
             document.getElementById('kpi-avg-order').innerText = `Rs. ${(stats.avg_order_value || 0).toLocaleString()}`;
 
-            // Channel Breakdown pill
+            // Channel Breakdown
             const ch = stats.channel_stats || {};
             const delRev = (ch.delivery?.revenue || 0).toLocaleString();
             const counterRev = ((ch.counter?.revenue || 0) + (ch.dine_in?.revenue || 0)).toLocaleString();
@@ -1152,14 +1232,14 @@ def render_pos_html() -> str:
             topContainer.innerHTML = '';
             const topList = stats.top_items || [];
             if (topList.length === 0) {
-                topContainer.innerHTML = `<div class="py-6 text-center text-slate-500 text-xs">No item sales recorded yet.</div>`;
+                topContainer.innerHTML = `<div class="py-6 text-center text-slate-400 dark:text-slate-500 text-xs">No item sales recorded yet.</div>`;
             } else {
                 const maxCount = Math.max(...topList.map(t => t.count), 1);
                 topList.forEach((it, idx) => {
                     const pct = Math.round((it.count / maxCount) * 100);
                     const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
                     const row = document.createElement('div');
-                    row.className = "bg-slate-50 dark:bg-darkslate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5";
+                    row.className = "bg-slate-50 dark:bg-darkslate-950 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-1.5";
                     row.innerHTML = `
                         <div class="flex items-center justify-between text-xs font-semibold">
                             <span class="flex items-center space-x-2 text-slate-800 dark:text-slate-200">
@@ -1168,8 +1248,8 @@ def render_pos_html() -> str:
                             </span>
                             <span class="font-bold text-emerald-600 dark:text-emerald-400 font-mono-num">${it.count} sold</span>
                         </div>
-                        <div class="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div class="bg-gradient-to-r from-rose-500 to-amber-400 h-full rounded-full" style="width: ${pct}%"></div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div class="bg-gradient-to-r from-rose-500 to-amber-400 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
                         </div>
                     `;
                     topContainer.appendChild(row);
@@ -1190,14 +1270,14 @@ def render_pos_html() -> str:
             statusMeta.forEach(sm => {
                 const pct = Math.round((sm.count / sumOrders) * 100);
                 const el = document.createElement('div');
-                el.className = "space-y-1";
+                el.className = "space-y-1.5";
                 el.innerHTML = `
                     <div class="flex justify-between text-xs font-semibold">
                         <span class="text-slate-700 dark:text-slate-300">${sm.label}</span>
                         <span class="font-mono-num text-slate-900 dark:text-slate-200 font-bold">${sm.count} (${pct}%)</span>
                     </div>
                     <div class="w-full bg-slate-200 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div class="bg-gradient-to-r ${sm.color} h-full rounded-full" style="width: ${pct}%"></div>
+                        <div class="bg-gradient-to-r ${sm.color} h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
                     </div>
                 `;
                 statusContainer.appendChild(el);
@@ -1208,7 +1288,7 @@ def render_pos_html() -> str:
             tbody.innerHTML = '';
             (allOrders || []).slice(0, 30).forEach(order => {
                 const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40 transition";
+                tr.className = "hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors";
                 const channelBadge = {
                     delivery: '<span class="text-emerald-600 dark:text-emerald-400 font-bold">🛵 WhatsApp</span>',
                     counter: '<span class="text-blue-600 dark:text-blue-400 font-bold">🛍️ Counter</span>',
@@ -1231,14 +1311,14 @@ def render_pos_html() -> str:
                     .trim();
 
                 tr.innerHTML = `
-                    <td class="py-2.5 px-2 font-mono-num font-bold text-sky-600 dark:text-sky-400">${order.order_id}</td>
-                    <td class="py-2.5 px-2 text-slate-500 dark:text-slate-400 text-[11px] font-mono-num">${order.formatted_time || order.timestamp || '-'}</td>
-                    <td class="py-2.5 px-2 text-slate-900 dark:text-slate-200 font-semibold">${order.customer_name}</td>
-                    <td class="py-2.5 px-2 text-[11px] font-semibold">${channelBadge}</td>
-                    <td class="py-2.5 px-2 text-slate-600 dark:text-slate-300 max-w-xs truncate">${itemsSummary || 'Order Items'}</td>
-                    <td class="py-2.5 px-2 text-right font-mono-num font-extrabold text-emerald-600 dark:text-emerald-400">Rs. ${order.total}</td>
-                    <td class="py-2.5 px-2 text-center">
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor}">
+                    <td class="py-3 px-2 font-mono-num font-bold text-sky-600 dark:text-sky-400">${order.order_id}</td>
+                    <td class="py-3 px-2 text-slate-500 dark:text-slate-400 text-[11px] font-mono-num">${order.formatted_time || order.timestamp || '-'}</td>
+                    <td class="py-3 px-2 text-slate-900 dark:text-slate-200 font-semibold">${order.customer_name}</td>
+                    <td class="py-3 px-2 text-[11px] font-semibold">${channelBadge}</td>
+                    <td class="py-3 px-2 text-slate-600 dark:text-slate-300 max-w-xs truncate">${itemsSummary || 'Order Items'}</td>
+                    <td class="py-3 px-2 text-right font-mono-num font-extrabold text-emerald-600 dark:text-emerald-400">Rs. ${order.total}</td>
+                    <td class="py-3 px-2 text-center">
+                        <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${statusColor}">
                             ${order.status}
                         </span>
                     </td>
@@ -1283,7 +1363,7 @@ def render_pos_html() -> str:
                                 backgroundColor: gradientRev,
                                 borderColor: '#f43f5e',
                                 borderWidth: 2,
-                                borderRadius: 6,
+                                borderRadius: 8,
                                 fill: true,
                                 yAxisID: 'y'
                             },
@@ -1398,7 +1478,7 @@ def render_pos_html() -> str:
                 chLabels.forEach((label, idx) => {
                     const rev = chValues[idx];
                     legendEl.innerHTML += `
-                        <div class="bg-slate-50 dark:bg-darkslate-950 p-2 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center space-x-2">
+                        <div class="bg-slate-50 dark:bg-darkslate-950 p-2.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center space-x-2">
                             <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${chColors[idx]}"></span>
                             <div class="min-w-0">
                                 <span class="text-slate-600 dark:text-slate-300 block text-[11px] font-semibold truncate">${label}</span>
@@ -1426,6 +1506,7 @@ def render_pos_html() -> str:
 
         function renderOrdersPipeline() {
             const grid = document.getElementById('orders-pipeline-grid');
+            if (!grid) return;
             grid.innerHTML = '';
 
             let filtered = allOrders;
@@ -1436,7 +1517,7 @@ def render_pos_html() -> str:
             document.getElementById('orders-count-label').innerText = filtered.length;
 
             if (filtered.length === 0) {
-                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-400 dark:text-slate-500 text-sm">No orders found in this category.</div>`;
+                grid.innerHTML = `<div class="col-span-full py-20 text-center text-slate-400 dark:text-slate-500 text-sm font-medium">No orders found in this category.</div>`;
                 return;
             }
 
@@ -1465,15 +1546,15 @@ def render_pos_html() -> str:
                 }[order.order_type] || '';
 
                 const noteHtml = order.special_notes ? `
-                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-2.5 text-xs text-amber-900 dark:text-amber-200">
+                    <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-2.5 text-xs text-amber-900 dark:text-amber-200">
                         <strong>📝 Special Note:</strong> ${order.special_notes}
                     </div>
                 ` : '';
 
-                card.className = `bg-white dark:bg-darkslate-900 border border-slate-200 dark:border-slate-800 ${statusBorder} rounded-2xl p-4 shadow-sm hover:shadow-md transition space-y-3 flex flex-col justify-between`;
+                card.className = `bg-white dark:bg-darkslate-850 border border-slate-200/80 dark:border-slate-800 ${statusBorder} rounded-3xl p-5 shadow-sm hover:shadow-md transition-all duration-200 space-y-3.5 flex flex-col justify-between`;
 
                 card.innerHTML = `
-                    <div class="space-y-2.5">
+                    <div class="space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="font-extrabold text-sm text-sky-600 dark:text-sky-400 font-mono-num">${order.order_id}</span>
                             <div class="flex items-center space-x-1.5">
@@ -1489,14 +1570,14 @@ def render_pos_html() -> str:
                         </div>
 
                         <!-- Items list -->
-                        <div class="bg-slate-50 dark:bg-darkslate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
+                        <div class="bg-slate-50 dark:bg-darkslate-950 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans leading-relaxed">
 ${order.items_list || order.slip || 'Order items'}
                         </div>
 
                         ${noteHtml}
                     </div>
 
-                    <div class="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <div class="pt-3 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
                         <div>
                             <span class="text-xs text-slate-500 dark:text-slate-400">Total:</span>
                             <span class="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono-num ml-1">Rs. ${order.total}</span>
