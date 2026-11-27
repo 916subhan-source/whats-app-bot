@@ -201,8 +201,8 @@ def render_pos_html() -> str:
 
                 <!-- Live digital clock -->
                 <div class="text-right hidden lg:block bg-slate-50 dark:bg-darkslate-950 px-3 py-1.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
-                    <div id="live-clock" class="text-xs font-mono-num font-extrabold text-slate-800 dark:text-slate-200">12:00:00 PM</div>
-                    <div id="live-date" class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Today</div>
+                    <div id="live-clock" class="text-xs font-mono-num font-extrabold text-slate-800 dark:text-slate-200">--:--:--</div>
+                    <div id="live-date" class="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">PKT (UTC+5)</div>
                 </div>
 
                 <!-- Live Auto-Sync Status -->
@@ -824,16 +824,50 @@ def render_pos_html() -> str:
         // ─────────────────────────────────────────────
         // 🕒 Live Digital Clock
         // ─────────────────────────────────────────────
+        function formatPakistanTime(dateOrStr) {
+            if (!dateOrStr) return '-';
+            let d = new Date(dateOrStr);
+            if (isNaN(d.getTime())) {
+                let isoStr = String(dateOrStr).trim().replace(' ', 'T');
+                if (!isoStr.endsWith('Z') && !isoStr.includes('+')) {
+                    isoStr += 'Z';
+                }
+                d = new Date(isoStr);
+            }
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleString('en-US', {
+                    timeZone: 'Asia/Karachi',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            }
+            return dateOrStr;
+        }
+
         function startClock() {
             function update() {
                 const now = new Date();
                 const clockEl = document.getElementById('live-clock');
                 const dateEl = document.getElementById('live-date');
                 if (clockEl) {
-                    clockEl.innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    clockEl.innerText = now.toLocaleTimeString('en-US', {
+                        timeZone: 'Asia/Karachi',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                    });
                 }
                 if (dateEl) {
-                    dateEl.innerText = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+                    dateEl.innerText = now.toLocaleDateString('en-US', {
+                        timeZone: 'Asia/Karachi',
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric'
+                    }) + ' (PKT)';
                 }
             }
             update();
@@ -1312,7 +1346,7 @@ def render_pos_html() -> str:
 
                 tr.innerHTML = `
                     <td class="py-3 px-2 font-mono-num font-bold text-sky-600 dark:text-sky-400">${order.order_id}</td>
-                    <td class="py-3 px-2 text-slate-500 dark:text-slate-400 text-[11px] font-mono-num">${order.formatted_time || order.timestamp || '-'}</td>
+                    <td class="py-3 px-2 text-slate-500 dark:text-slate-400 text-[11px] font-mono-num">${formatPakistanTime(order.formatted_time || order.timestamp)}</td>
                     <td class="py-3 px-2 text-slate-900 dark:text-slate-200 font-semibold">${order.customer_name}</td>
                     <td class="py-3 px-2 text-[11px] font-semibold">${channelBadge}</td>
                     <td class="py-3 px-2 text-slate-600 dark:text-slate-300 max-w-xs truncate">${itemsSummary || 'Order Items'}</td>
@@ -1566,7 +1600,7 @@ def render_pos_html() -> str:
                         <div class="text-xs text-slate-600 dark:text-slate-300 space-y-1">
                             <div><strong>👤 Customer:</strong> <span class="text-slate-900 dark:text-white font-semibold">${order.customer_name}</span> &nbsp;|&nbsp; <strong>📞</strong> <a href="https://wa.me/${(order.customer_phone || '').replace(/[^0-9]/g, '')}" target="_blank" class="text-emerald-600 dark:text-emerald-400 hover:underline font-mono-num font-bold">${order.customer_phone}</a></div>
                             <div><strong>📍 Location / Table:</strong> ${order.address}</div>
-                            <div class="text-[11px] text-slate-500 dark:text-slate-400">🕒 ${order.formatted_time || order.timestamp}</div>
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400">🕒 ${formatPakistanTime(order.formatted_time || order.timestamp)}</div>
                         </div>
 
                         <!-- Items list -->
@@ -1646,7 +1680,7 @@ ${order.items_list || order.slip || 'Order items'}
 
                 <div style="font-size: 9pt; margin-bottom: 8px; border-bottom: 1px dashed #000; padding-bottom: 6px;">
                     <div><strong>RECEIPT:</strong> ${order.order_id}</div>
-                    <div><strong>DATE:</strong> ${order.timestamp || new Date().toLocaleString()}</div>
+                    <div><strong>DATE:</strong> ${formatPakistanTime(order.timestamp || new Date())}</div>
                     <div><strong>TYPE:</strong> ${(order.order_type || 'Takeaway').toUpperCase()}</div>
                     <div><strong>CUSTOMER:</strong> ${order.customer_name || 'Walk-in'} (${order.customer_phone || '-'})</div>
                     <div><strong>LOCATION:</strong> ${order.address || 'Counter'}</div>

@@ -383,30 +383,30 @@ def db_get_sales_analytics() -> dict:
     tot_revenue = tot_row[1] or 0
     avg_order = int(tot_row[2] or 0)
 
-    # Today's sales
-    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(created_at) = date('now') AND status != 'cancelled';")
+    # Today's sales (Asia/Karachi UTC+5)
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(datetime(created_at, '+5 hours')) = date(datetime('now', '+5 hours')) AND status != 'cancelled';")
     tod_row = cur.fetchone()
     today_orders = tod_row[0] or 0
     today_revenue = tod_row[1] or 0
 
-    # Yesterday's sales
-    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(created_at) = date('now', '-1 day') AND status != 'cancelled';")
+    # Yesterday's sales (Asia/Karachi UTC+5)
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE date(datetime(created_at, '+5 hours')) = date(datetime('now', '+5 hours', '-1 day')) AND status != 'cancelled';")
     yest_row = cur.fetchone()
     yest_orders = yest_row[0] or 0
     yest_revenue = yest_row[1] or 0
 
-    # Current month's sales
-    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') AND status != 'cancelled';")
+    # Current month's sales (Asia/Karachi UTC+5)
+    cur.execute("SELECT COUNT(*), COALESCE(SUM(total), 0) FROM orders WHERE strftime('%Y-%m', datetime(created_at, '+5 hours')) = strftime('%Y-%m', datetime('now', '+5 hours')) AND status != 'cancelled';")
     mon_row = cur.fetchone()
     month_orders = mon_row[0] or 0
     month_revenue = mon_row[1] or 0
 
-    # Daily breakdown for the last 30 days
+    # Daily breakdown for the last 30 days (Asia/Karachi UTC+5)
     cur.execute("""
-        SELECT date(created_at) as sale_date, COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
+        SELECT date(datetime(created_at, '+5 hours')) as sale_date, COUNT(*) as order_count, COALESCE(SUM(total), 0) as revenue
         FROM orders
-        WHERE status != 'cancelled' AND created_at >= date('now', '-30 days')
-        GROUP BY date(created_at)
+        WHERE status != 'cancelled' AND datetime(created_at, '+5 hours') >= date(datetime('now', '+5 hours', '-30 days'))
+        GROUP BY date(datetime(created_at, '+5 hours'))
         ORDER BY sale_date ASC;
     """)
     daily_rows = [dict(r) for r in cur.fetchall()]
@@ -527,7 +527,7 @@ def db_get_recent_orders(limit: int = 50) -> List[Dict[str, Any]]:
                items_list, subtotal, delivery_fee, total, slip, status,
                coalesce(order_type, 'delivery') as order_type,
                coalesce(special_notes, '') as special_notes,
-               created_at as timestamp
+               datetime(created_at, '+5 hours') as timestamp
         FROM orders
         ORDER BY created_at DESC
         LIMIT ?;
