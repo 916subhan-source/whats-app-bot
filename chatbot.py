@@ -146,12 +146,46 @@ Customer: {customer_name} ({formatted_phone})
 CRITICAL RULES:
 1. DEALS 1-26: All items & sizes in Deals are ALREADY FIXED. Accept immediately. NEVER ask size or burger flavor for any deal. Ask delivery address if not known.
 2. STANDALONE ITEMS: Only ask size if standalone pizza has no size (Small Rs.450, Med Rs.750, Large Rs.1100, XL Rs.1700).
-3. SPECIAL NOTES: If customer gives instructions ("cheese kam", "kam sauce", "spicy"), warmly acknowledge!
-4. KEEP RESPONSES SHORT & FAST: 1 to 3 friendly sentences in sweet Roman Urdu / English.
-5. TWO-STEP CONFIRMATION:
-   - Step 1: When address & items ready, show Order Summary and ask confirmation ("Kya aap confirm karte hain?").
-   - Step 2: Only after customer says "Yes/Haan/Confirm", show Order #FE-XXXX Confirmed slip.
-   - ZERO PAYMENT MENTION: Never mention payment method, Easypaisa, or Cash on Delivery. Rider collects on delivery.
+3. SPECIAL NOTES: If customer gives instructions ("cheese kam", "kam sauce", "spicy"), warmly acknowledge and include in the slip!
+4. KEEP CHAT SHORT & FAST: For normal replies, use 1 to 3 friendly sentences in sweet Roman Urdu / English.
+5. ZERO PAYMENT MENTION: Never mention payment method, Easypaisa, or Cash on Delivery. Delivery charges are NOT free; rider collects at delivery time.
+6. TWO-STEP CONFIRMATION (EXACT WHATSAPP TEMPLATE):
+   - STEP 1 (ORDER SUMMARY): When items & delivery address are ready, DO NOT confirm yet. Reply with ONLY this exact template:
+
+*{clean_name}*
+📋 *Order Summary*
+────────────────────
+👤 *Customer:* {customer_name} | {formatted_phone}
+📍 *Delivery Address:* [Customer Address]
+
+🍽️ *Items:*
+• [Qty]x [Item/Deal Name] — Rs. [Item Price x Qty]
+[If special instructions exist, add: 📝 *Special Note:* [Instructions]]
+
+💰 *Food Total:* Rs. [Total]
+🛵 *Delivery Charges:* Payable to rider at delivery time
+⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
+────────────────────
+👉 *Kya aap is order ko confirm karte hain?*
+(Order finalize karne ke liye please *'Yes / Haan'* ya *'Confirm'* reply karein.)
+
+   - STEP 2 (ORDER CONFIRMED): ONLY after customer replies "Yes/Haan/Confirm/OK/Theek hai/Bhej dein", reply with ONLY this exact template:
+
+*{clean_name}*
+Order #FE-[Random 4 Digits] Confirmed ✅
+────────────────────
+👤 *Customer:* {customer_name} | {formatted_phone}
+📍 *Delivery Address:* [Customer Address]
+
+🍽️ *Items:*
+• [Qty]x [Item/Deal Name] — Rs. [Item Price x Qty]
+[If special instructions exist, add: 📝 *Special Note:* [Instructions]]
+
+💰 *Food Total:* Rs. [Total]
+🛵 *Delivery Charges:* Payable to rider at delivery time
+⏱️ *Estimated Time:* {RESTAURANT_INFO['estimatedTime']}
+────────────────────
+Aap ka order kitchen mein bhej diya gaya hai aur jald deliver hoga. Shukriya! 🛵
 
 MENU:
 {menu_knowledge_base}"""
@@ -254,7 +288,7 @@ async def call_freellm_ai(user_history, base_url: str, api_key: str, customer_na
             "model": model,
             "messages": messages,
             "temperature": 0.6,
-            "max_tokens": 300
+            "max_tokens": 600
         }
         try:
             response = await client.post(url, json=payload, headers=headers, timeout=8.0)
@@ -1297,27 +1331,31 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
             "order_confirmed": False
         }
 
-    # 0b. Fast-path: Instant Order Confirmation (<0.01s)
+    # 0b. Fast-path: Instant Order Confirmation (<0.01s) — only when cart actually has items & address
     confirm_words = {"yes", "haan", "han", "confirm", "ok", "theek hai", "theek hy", "done", "bhej do", "bhej dein", "kar do", "kar dein", "ji haan", "jee haan"}
     cart = await get_cart(phone_number)
-    if cart.get("awaiting_confirmation") and clean_text in confirm_words and cart.get("address"):
-        import random
+    if cart.get("awaiting_confirmation") and clean_text in confirm_words and cart.get("items") and cart.get("address"):
         order_id = f"#FE-{random.randint(1000, 9999)}"
-        items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items in order", 0, 0)
-        confirmed_slip = create_order_placement_slip(order_id, customer_name, phone_number, cart["address"], cart, cart.get("special_notes"))
+        items_list, subtotal, total = format_cart_summary(cart)
+        delivery_address = cart["address"]
+        special_notes = cart.get("special_notes") or ""
+        confirmed_slip = create_order_placement_slip(order_id, customer_name, phone_number, delivery_address, cart, special_notes)
 
         cart["awaiting_confirmation"] = False
+        cart["awaiting_address"] = False
         cart["items"] = []
+        cart["address"] = None
         cart["special_notes"] = ""
         await save_cart(phone_number, cart)
+        await save_history(phone_number, [])
 
         order_details = {
             "order_id": order_id,
             "customer_name": customer_name,
             "customer_phone": format_phone_number(phone_number),
-            "address": cart.get("address"),
+            "address": delivery_address,
             "items_list": items_list,
-            "special_notes": cart.get("special_notes") or "",
+            "special_notes": special_notes,
             "subtotal": subtotal,
             "delivery_fee": 0,
             "total": total,
@@ -1430,11 +1468,32 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                     order_id = id_match.group(0).upper()
 
                 items_list, subtotal, total = format_cart_summary(cart) if cart.get("items") else ("Items in order receipt", 0, "COD")
-                total_match = re.search(r"total bill[:\s\*]+rs\.?\s*([\d,]+)", ai_reply, re.IGNORECASE)
+                if not cart.get("items"):
+                    items_block = re.search(r"Items:\*?\s*\n(.*?)(?:\n\s*\n|\n📝|\n💰)", ai_reply, re.DOTALL | re.IGNORECASE)
+                    if items_block:
+                        parsed_items = items_block.group(1).strip()
+                        if parsed_items:
+                            items_list = parsed_items
+
+                total_match = re.search(r"(?:food total|total bill|total)[:\s\*]+rs\.?\s*([\d,]+)", ai_reply, re.IGNORECASE)
                 if total_match:
                     total = total_match.group(1).replace(",", "")
+                    if subtotal == 0 and total.isdigit():
+                        subtotal = int(total)
 
-                delivery_address = cart.get("address") or message_text
+                delivery_address = cart.get("address")
+                if not delivery_address:
+                    addr_match = re.search(r"Delivery Address:\*?\s*(.+)", ai_reply, re.IGNORECASE)
+                    if addr_match:
+                        delivery_address = addr_match.group(1).strip()
+                    else:
+                        delivery_address = message_text
+
+                special_notes = cart.get("special_notes") or ""
+                if not special_notes:
+                    note_match = re.search(r"Special Note:\*?\s*(.+)", ai_reply, re.IGNORECASE)
+                    if note_match:
+                        special_notes = note_match.group(1).strip()
 
                 order_details = {
                     "order_id": order_id,
@@ -1442,7 +1501,7 @@ async def process_message(phone_number: str, message_text: str, customer_name: s
                     "customer_phone": format_phone_number(phone_number),
                     "address": delivery_address,
                     "items_list": items_list,
-                    "special_notes": cart.get("special_notes") or "",
+                    "special_notes": special_notes,
                     "subtotal": subtotal,
                     "delivery_fee": 0,
                     "total": total,
